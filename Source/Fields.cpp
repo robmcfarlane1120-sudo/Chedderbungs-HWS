@@ -3059,7 +3059,7 @@ void FieldDataSet::WritePPF(fstream& ffbin, ClusterSet& clusset) {
 	}
 }
 
-int* FieldDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, bool usetext, unsigned int localflag) {
+int* FieldDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, bool usetext, unsigned int localflag, TextDataSet* textset) {
 	unsigned int i, j;
 	uint32_t chunksize, clustersize, chunkpos, objectpos, objectsize;
 	uint16_t nbmodified;
@@ -3204,13 +3204,9 @@ int* FieldDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, bool us
 					} else if (chunktype == CHUNK_SPECIAL_TYPE_FIELD_ADDITION) {
 						if (loadmain) {
 							addition[objindex]->ReadHWS(ffhws);
-							related_text[objindex] = NULL;
-							for (j = 0; j < related_text.size(); j++) {
-								if (j != objindex && related_text[j] != NULL && related_text[j]->block_id == addition[objindex]->text_block_id) {
-									related_text[objindex] = related_text[j];
-									break;
-								}
-							}
+							int textid = addition[objindex]->text_block_id;
+							int textindex = textset && textid >= 0 && textid <= UINT16_MAX ? textset->GetIndexById(textid) : -1;
+							related_text[objindex] = textindex >= 0 ? textset->text_data[textindex] : nullptr;
 						}
 					} else
 						res[1]++;

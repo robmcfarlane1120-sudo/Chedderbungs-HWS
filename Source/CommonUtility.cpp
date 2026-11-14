@@ -165,7 +165,7 @@ void UpdateCustomFieldMap(map<wxString, wxString>& fields, map<wxString, wxStrin
 		fields.erase(*f);
 }
 
-bool MemoriaUtility::ExportDictionaryPatchLines(wxString filename, wxString removeinstruction, wxString appendstr) {
+bool MemoriaUtility::ExportDictionaryPatchLines(wxString filename, wxString removeinstruction, wxString appendstr, bool prepend) {
 	wxString previouspatch = "";
 	if (wxFile::Exists(filename)) {
 		wxFile inpatchfile(filename, wxFile::OpenMode::read);
@@ -226,8 +226,9 @@ bool MemoriaUtility::ExportDictionaryPatchLines(wxString filename, wxString remo
 	wxFile patchfile(filename, wxFile::OpenMode::write);
 	if (!patchfile.IsOpened())
 		return false;
+	if (prepend) patchfile.Write(appendstr);
 	patchfile.Write(previouspatch);
-	patchfile.Write(appendstr);
+	if (!prepend) patchfile.Write(appendstr);
 	patchfile.Close();
 	return true;
 }

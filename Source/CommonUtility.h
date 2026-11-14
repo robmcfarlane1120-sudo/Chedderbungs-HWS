@@ -51,7 +51,7 @@ bool IsNumber(string s);
 void UpdateCustomFieldMap(map<wxString, wxString>& fields, map<wxString, wxString>& parentfields);
 
 namespace MemoriaUtility {
-	bool ExportDictionaryPatchLines(wxString filename, wxString removeinstruction, wxString appendstr);
+	bool ExportDictionaryPatchLines(wxString filename, wxString removeinstruction, wxString appendstr, bool prepend = false);
 	wxArrayString LoadCSVLines(wxString filename, wxArrayString* metadata = NULL);
 	wxArrayString LoadCSVEntry(wxString csvline);
 	wxArrayString SplitEntryArray(wxString csventry, wxUniChar sep = ',');

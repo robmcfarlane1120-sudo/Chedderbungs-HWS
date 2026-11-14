@@ -464,7 +464,7 @@ public:
 	// return value is int[5] to be deleted
 	// {Number of oversized blocks, Number of unknown data, Number of unused blocks, Number of oversized parent block, Number of ignored Preload data}
 	// Parent block is a data block containing preloading datas and TIM images in Field & World Map clusters.
-	int* LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, bool usetext, unsigned int localflag);
+	int* LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, bool usetext, unsigned int localflag, TextDataSet* textset);
 	void WriteHWS(fstream& ffhws, UnusedSaveBackupPart& backup, unsigned int localflag);
 	int GetSteamTextSize(SteamLanguage lang = GetSteamLanguage());
 	void WriteSteamText(fstream& ffbin, SteamLanguage lang = GetSteamLanguage());

@@ -45,6 +45,7 @@ struct TextDataEntry {
 
 struct TextDataStruct : public ChunkChild {
 public:
+	bool custom_block = false;
 	uint16_t block_id;
 	vector<TextDataEntry> text;
 	bool has_format;
@@ -94,6 +95,7 @@ public:
 	int* LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup);
 	void WriteHWS(fstream& ffhws, UnusedSaveBackupPart& backup);
 	int GetIndexById(uint16_t blockid);
+	int AddCustomBlock(uint16_t id, const wstring& label, const TextDataStruct* source = nullptr);
 };
 
 struct SpecialTextDataEntry {

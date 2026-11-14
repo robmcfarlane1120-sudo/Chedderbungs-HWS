@@ -2311,6 +2311,30 @@ int CreateSteamMod(string destfolder, bool* section, ConfigurationSet& config, S
 	wxYield();
 	GetTopWindow()->SetDoubleBuffered(false);
 
+	// Register custom message files before exporting the FieldScene lines that use them.
+	if (assetformat == 1 && config.dll_usage != 0 && saveset.sectionloaded[DATA_SECTION_TEXT]) {
+		for (i = 0; i < saveset.textset->amount; i++) {
+			TextDataStruct* block = saveset.textset->text_data[i];
+			if (!block || !block->custom_block) continue;
+			string id = to_string(block->block_id);
+			for (lang = 0; lang < STEAM_LANGUAGE_AMOUNT; lang++) {
+				if (!hades::STEAM_LANGUAGE_SAVE_LIST[lang]) continue;
+				string path = destfolder + "FF9_Data\\EmbeddedAsset\\Text\\" +
+					HADES_STRING_STEAM_LANGUAGE_SHORT_NAME_FIX[lang].ToStdString() + "\\Field\\" + id + ".mes";
+				MainFrame::MakeDirForFile(path);
+				fstream output(path.c_str(), ios::out | ios::binary);
+				if (!output) return 3;
+				block->WriteSteamPatch(output, wxArrayString(), lang);
+				output.close();
+				if (!output) return 3;
+			}
+			if (!MemoriaUtility::ExportDictionaryPatchLines(destfolder + HADES_STRING_DICTIONARY_PATCH_FILE,
+				wxString::Format(L"MessageFile %u ", (unsigned)block->block_id),
+				wxString::Format(L"MessageFile %u MES_CUSTOM_TEXT_%u\n", (unsigned)block->block_id, (unsigned)block->block_id), true))
+				return 3;
+		}
+	}
+
 	// Additional assets for custom battles and fields
 	if (assetformat == 1) {
 		if (section[DATA_SECTION_ENMY])
@@ -2827,7 +2851,7 @@ wstring* LoadHWS(string filepath, bool* section, bool* sectext, bool* localsec, 
 				int res = saveset.cardset->LoadHWS(save, sectext[sectiontype[i]]);
 				MACRO_HANDLE_FLAG_PROBLEM(1, HADES_STRING_HWS_OPEN_WARNING_CARD_NAME)
 			} else if (sectiontype[i] == DATA_SECTION_FIELD) {
-				int* res = saveset.fieldset->LoadHWS(save, backup.field, sectext[sectiontype[i]], fieldload);
+				int* res = saveset.fieldset->LoadHWS(save, backup.field, sectext[sectiontype[i]], fieldload, saveset.textset);
 				MACRO_HANDLE_QUANTIFIED_PROBLEM(0, HADES_STRING_HWS_OPEN_WARNING_FIELD_SIZE)
 				MACRO_HANDLE_QUANTIFIED_PROBLEM(1, HADES_STRING_HWS_OPEN_WARNING_FIELD_UNKNOWN)
 				MACRO_HANDLE_QUANTIFIED_PROBLEM(2, HADES_STRING_HWS_OPEN_WARNING_FIELD_UNUSED)

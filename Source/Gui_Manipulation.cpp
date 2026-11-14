@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <wx/textdlg.h>
 #include "main.h"
 #include "CommonUtility.h"
 #include "Gui_CurveEditor.h"
@@ -262,7 +263,8 @@ void CDDataStruct::CardDisplayNames(bool create) {
 }
 
 void CDDataStruct::TextDisplayNames(bool create) {
-	unsigned int i, prev = textsorted[m_textlist->GetSelection()];
+	int selected = m_textlist->GetSelection();
+	unsigned int i, prev = selected == wxNOT_FOUND ? 0 : textsorted[selected];
 	if (!create)
 		m_textlist->Clear();
 	wxArrayString names;
@@ -276,7 +278,11 @@ void CDDataStruct::TextDisplayNames(bool create) {
 	else
 		textsorted = OrderedIndex;
 	for (i = 0; i < textset.amount; i++) {
-		m_textlist->Append(textset.name[textsorted[i]], (void*)&textsorted[i]);
+		unsigned int index = textsorted[i];
+		wxString label = _(textset.name[index]);
+		if (textset.text_data[index] && textset.text_data[index]->custom_block)
+			label = wxString::Format(L"%u: ", (unsigned)textset.struct_id[index]) + label;
+		m_textlist->Append(label, (void*)&textsorted[i]);
 		if (!create && textsorted[i] == prev)
 			m_textlist->SetSelection(i);
 	}
@@ -1033,6 +1039,18 @@ wstring* CDDataStruct::ReadHWS(const char* fname, bool* section, bool* sectext, 
 	if (section[DATA_SECTION_TEXT]) {
 		saveset.sectionmodified[DATA_SECTION_TEXT] = true;
 		TextDisplayNames();
+		m_fieldtextblock->Clear();
+		for (i = 0; i < textset.amount; i++) {
+			wxString label = _(textset.name[i]);
+			if (textset.text_data[i] && textset.text_data[i]->custom_block)
+				label = wxString::Format(L"%u: ", (unsigned)textset.struct_id[i]) + label;
+			m_fieldtextblock->Append(label);
+		}
+		if (m_fieldlist->GetSelection() != wxNOT_FOUND) {
+			auto index = *static_cast<unsigned int*>(m_fieldlist->GetClientData(m_fieldlist->GetSelection()));
+			auto block = fieldset.related_text[index];
+			m_fieldtextblock->SetSelection(block ? textset.GetIndexById(block->block_id) : wxNOT_FOUND);
+		}
 	}
 	if (section[DATA_SECTION_WORLD_MAP]) {
 		saveset.sectionmodified[DATA_SECTION_WORLD_MAP] = true;
@@ -8857,6 +8875,37 @@ void CDDataStruct::InitText(void) {
 	textset.Load(f, cluster);
 	if (gametype == GAME_TYPE_PSX) f.close();
 	TextDisplayNames(true);
+	m_textlist->Bind(wxEVT_CONTEXT_MENU, [this](wxContextMenuEvent&) {
+		if (gametype != GAME_TYPE_STEAM || config.dll_usage == 0) return;
+
+		wxMenu menu;
+		menu.Append(wxID_ADD, L"Add Custom Text Block");
+		if (m_textlist->GetPopupMenuSelectionFromUser(menu) != wxID_ADD) return;
+		wxTextEntryDialog nameDialog(this, L"Name for the new text block", L"Add Custom Text Block");
+		if (nameDialog.ShowModal() != wxID_OK) return;
+		wxString label = nameDialog.GetValue().Trim().Trim(false);
+		wxTextEntryDialog idDialog(this, L"Enter an unused text block ID (2000-65535).\nHighest vanilla FFIX message ID: 1461.\nChoose an ID that is unused by your project and other mods.", L"Add Custom Text Block");
+		if (idDialog.ShowModal() != wxID_OK) return;
+		unsigned long id;
+		if (!idDialog.GetValue().ToULong(&id) || id < 2000 || id > UINT16_MAX || label.empty()) {
+			wxMessageBox(L"Enter a name and an ID between 2000 and 65535.", L"Add Custom Text Block", wxOK | wxICON_ERROR, this);
+			return;
+		}
+		int index = textset.AddCustomBlock(static_cast<uint16_t>(id), label.ToStdWstring());
+		if (index < 0) {
+			wxMessageBox(L"This text block ID is already reserved, or the text list is full.", L"Add Custom Text Block", wxOK | wxICON_ERROR, this);
+			return;
+		}
+		MarkDataTextModified(index, CHUNK_TYPE_TEXT);
+		TextDisplayNames();
+		m_fieldtextblock->Append(wxString::Format(L"%lu: ", id) + label);
+		for (unsigned int i = 0; i < textset.amount; i++) {
+			if (textsorted[i] != static_cast<unsigned int>(index)) continue;
+			m_textlist->SetSelection(i);
+			DisplayText(i);
+			break;
+		}
+	});
 	for (i = 0; i < textset.amount; i++)
 		m_fieldtextblock->Append(_(textset.name[i]));
 	saveset.sectionloaded[DATA_SECTION_TEXT] = true;
