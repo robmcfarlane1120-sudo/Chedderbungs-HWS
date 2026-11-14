@@ -597,6 +597,54 @@ int TextDataSet::AddCustomBlock(uint16_t id, const wstring& label) {
 
 static constexpr uint8_t CUSTOM_TEXT_BLOCK = 0xFA; // Name followed by multilingual text chunk.
 
+static bool ValidateCustomTextPayload(fstream& f, uint32_t end) {
+	uint32_t start = f.tellg();
+	uint16_t count;
+	if (end - start < 3)
+		return false;
+	HWSReadShort(f, count);
+	if (!f || count > (end - start - 3) / 4)
+		return false;
+	f.seekg(4 * count, ios::cur);
+	while (f && f.tellg() < end) {
+		int lang = f.get();
+		uint32_t pos = f.tellg();
+		if (lang == STEAM_LANGUAGE_NONE)
+			return pos == end;
+		if (lang < 0 || lang >= STEAM_LANGUAGE_AMOUNT || end - pos < 5)
+			return false;
+		uint32_t size;
+		HWSReadLong(f, size);
+		if (!f || size >= end - pos - 4)
+			return false;
+		string data(size, '\0');
+		if (size && !f.read(&data[0], size))
+			return false;
+		size_t offset = 0;
+		for (unsigned int i = 0; i < count && offset < data.size(); i++) {
+			size_t terminator = data.find("[ENDN]", offset);
+			size_t timed = data.find("[TIME=", offset);
+			size_t next;
+			if (timed < terminator) {
+				next = data.find(']', timed);
+				if (next == string::npos)
+					return false;
+				next++;
+			} else {
+				if (terminator == string::npos)
+					return false;
+				next = terminator + 6;
+			}
+			if (next - offset > UINT16_MAX || data.find('\0', offset) < next)
+				return false;
+			offset = next;
+		}
+		if (offset != data.size())
+			return false;
+	}
+	return false;
+}
+
 int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t sectionend) {
 	unsigned int i, j, k;
 	uint32_t chunksize, clustersize, chunkpos, objectpos, objectsize;
@@ -646,10 +694,18 @@ int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t
 				res[1]++;
 				return res;
 			}
+			if (!label.empty() && payload) {
+				ffhws.seekg(payload);
+				if (!ValidateCustomTextPayload(ffhws, payloadend))
+					label.clear();
+			}
 			if (label.empty() || !payload) {
+				ffhws.clear();
+				ffhws.seekg(payload ? payloadend + 1 : labelstart + chunksize + 1);
 				res[1]++;
 				continue;
 			}
+			ffhws.seekg(payloadend + 1);
 			int index = GetIndexById(objectid);
 			if (index < 0)
 				index = AddCustomBlock(objectid, label);

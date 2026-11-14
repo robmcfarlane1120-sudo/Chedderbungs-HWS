@@ -173,7 +173,8 @@ bool MemoriaUtility::ExportDictionaryPatchLines(wxString filename, wxString remo
 			wxString wholepreviouspatch;
 			if (!inpatchfile.ReadAll(&wholepreviouspatch))
 				return false;
-			inpatchfile.Close();
+			if (!inpatchfile.Close())
+				return false;
 			size_t prevpos = 0, battlemapentrypos = wholepreviouspatch.find(removeinstruction);
 			while (battlemapentrypos != wxString::npos) {
 				if (battlemapentrypos > 0 && wholepreviouspatch[battlemapentrypos - 1] != '\n') {
