@@ -370,9 +370,22 @@ void TextDataStruct::WriteHWS(fstream& f, bool multilang) {
 			for (lang = 0; lang < STEAM_LANGUAGE_AMOUNT; lang++)
 				if (hades::STEAM_LANGUAGE_SAVE_LIST[lang]) {
 					HWSWriteChar(f, lang);
-					HWSWriteLong(f, GetDataSize(lang));
-					for (i = 0; i < text.size(); i++)
-						SteamWriteFF9String(f, text[i].txt, lang);
+					unsigned int count = text.size();
+					if (custom_block)
+						while (count && text[count - 1].txt.GetLength(lang) == 0)
+							count--;
+					uint32_t length = GetDataSize(lang);
+					if (custom_block)
+						for (i = 0; i < count; i++)
+							if (text[i].txt.GetLength(lang) == 0)
+								length += 6;
+					HWSWriteLong(f, length);
+					for (i = 0; i < count; i++) {
+						if (custom_block && text[i].txt.GetLength(lang) == 0)
+							SteamWriteFF9StringLight(f, L"[ENDN]");
+						else
+							SteamWriteFF9String(f, text[i].txt, lang);
+					}
 				}
 			HWSWriteChar(f, STEAM_LANGUAGE_NONE);
 		} else {
