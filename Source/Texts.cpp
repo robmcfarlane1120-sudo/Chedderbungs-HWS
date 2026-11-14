@@ -246,7 +246,7 @@ void TextDataStruct::WritePPF(fstream& f) {
 	}
 }
 
-void TextDataStruct::ReadHWS(fstream& f, bool multilang) {
+void TextDataStruct::ReadHWS(fstream& f, bool multilang, std::streamoff end) {
 	uint16_t version = 0;
 	unsigned int i, j, k;
 	if (!multilang) {
@@ -259,7 +259,15 @@ void TextDataStruct::ReadHWS(fstream& f, bool multilang) {
 	} else {
 		vector<int> indexes;
 		uint16_t newamount;
+		if (end >= 0 && end - f.tellg() < 3) {
+			f.setstate(ios::failbit);
+			return;
+		}
 		HWSReadShort(f, newamount);
+		if (!f || (end >= 0 && newamount > (end - f.tellg() - 1) / 4)) {
+			f.setstate(ios::failbit);
+			return;
+		}
 		indexes.resize(newamount);
 		if (GetHWSGlobalVersion() >= 100) {
 			int newtextid;
@@ -292,8 +300,22 @@ void TextDataStruct::ReadHWS(fstream& f, bool multilang) {
 		uint32_t txtdatasize, txtdatatotalsize;
 		SteamLanguage lang;
 		HWSReadChar(f, lang);
-		while (lang != STEAM_LANGUAGE_NONE) {
+		while (f && lang != STEAM_LANGUAGE_NONE) {
+			if (end >= 0 && (lang >= STEAM_LANGUAGE_AMOUNT || end - f.tellg() < 5)) {
+				f.setstate(ios::failbit);
+				return;
+			}
 			HWSReadLong(f, txtdatatotalsize);
+			if (!f)
+				return;
+			std::streamoff languageEnd = -1;
+			if (end >= 0) {
+				languageEnd = std::streamoff(f.tellg()) + txtdatatotalsize;
+				if (languageEnd >= end) {
+					f.setstate(ios::failbit);
+					return;
+				}
+			}
 			if ((GetGameType() == GAME_TYPE_PSX || hades::STEAM_SINGLE_LANGUAGE_MODE) && lang != GetSteamLanguage()) {
 				f.seekg(txtdatatotalsize, ios::cur);
 				HWSReadChar(f, lang);
@@ -303,16 +325,30 @@ void TextDataStruct::ReadHWS(fstream& f, bool multilang) {
 			for (i = 0; i < newamount && txtdatasize < txtdatatotalsize; i++) {
 				if (indexes[i] < 0) {
 					FF9String dummystr;
-					SteamReadFF9String(f, dummystr, lang);
+					SteamReadFF9String(f, dummystr, lang, languageEnd);
+					if (!f)
+						return;
 					txtdatasize += dummystr.GetLength(lang);
 				} else {
-					SteamReadFF9String(f, text[indexes[i]].txt, lang);
+					SteamReadFF9String(f, text[indexes[i]].txt, lang, languageEnd);
+					if (!f)
+						return;
 					if (GetGameType() == GAME_TYPE_PSX)
 						text[indexes[i]].txt.SteamToPSX();
 					txtdatasize += text[indexes[i]].txt.GetLength(lang);
 				}
+				if (end >= 0)
+					txtdatasize = txtdatatotalsize - (languageEnd - f.tellg());
+			}
+			if (end >= 0 && f.tellg() != languageEnd) {
+				f.setstate(ios::failbit);
+				return;
 			}
 			HWSReadChar(f, lang);
+		}
+		if (end >= 0 && f.tellg() != end) {
+			f.setstate(ios::failbit);
+			return;
 		}
 	}
 	UpdateOffset();
@@ -597,54 +633,6 @@ int TextDataSet::AddCustomBlock(uint16_t id, const wstring& label) {
 
 static constexpr uint8_t CUSTOM_TEXT_BLOCK = 0xFA; // Name followed by multilingual text chunk.
 
-static bool ValidateCustomTextPayload(fstream& f, uint32_t end) {
-	uint32_t start = f.tellg();
-	uint16_t count;
-	if (end - start < 3)
-		return false;
-	HWSReadShort(f, count);
-	if (!f || count > (end - start - 3) / 4)
-		return false;
-	f.seekg(4 * count, ios::cur);
-	while (f && f.tellg() < end) {
-		int lang = f.get();
-		uint32_t pos = f.tellg();
-		if (lang == STEAM_LANGUAGE_NONE)
-			return pos == end;
-		if (lang < 0 || lang >= STEAM_LANGUAGE_AMOUNT || end - pos < 5)
-			return false;
-		uint32_t size;
-		HWSReadLong(f, size);
-		if (!f || size >= end - pos - 4)
-			return false;
-		string data(size, '\0');
-		if (size && !f.read(&data[0], size))
-			return false;
-		size_t offset = 0;
-		for (unsigned int i = 0; i < count && offset < data.size(); i++) {
-			size_t terminator = data.find("[ENDN]", offset);
-			size_t timed = data.find("[TIME=", offset);
-			size_t next;
-			if (timed < terminator) {
-				next = data.find(']', timed);
-				if (next == string::npos)
-					return false;
-				next++;
-			} else {
-				if (terminator == string::npos)
-					return false;
-				next = terminator + 6;
-			}
-			if (next - offset > UINT16_MAX || data.find('\0', offset) < next)
-				return false;
-			offset = next;
-		}
-		if (offset != data.size())
-			return false;
-	}
-	return false;
-}
-
 int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t sectionend) {
 	unsigned int i, j, k;
 	uint32_t chunksize, clustersize, chunkpos, objectpos, objectsize;
@@ -656,14 +644,22 @@ int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t
 	HWSReadShort(ffhws, nbmodified);
 	for (i = 0; i < nbmodified; i++) {
 		objectpos = ffhws.tellg();
+		if (objectpos > sectionend || sectionend - objectpos < 7) {
+			res[1]++;
+			return res;
+		}
 		HWSReadShort(ffhws, objectid);
 		HWSReadLong(ffhws, clustersize);
 		if (GetHWSGlobalVersion() >= 103 && GetGameType() == GAME_TYPE_STEAM &&
 			GetHWSGameType() == GAME_TYPE_STEAM && ffhws.peek() == CUSTOM_TEXT_BLOCK) {
+			if (sectionend - objectpos < 16) {
+				res[1]++;
+				return res;
+			}
 			ffhws.get();
 			HWSReadLong(ffhws, chunksize);
 			uint32_t labelstart = ffhws.tellg();
-			if (labelstart > sectionend || chunksize < 4 || chunksize > sectionend - labelstart) {
+			if (labelstart > sectionend || chunksize < 4 || chunksize >= sectionend - labelstart) {
 				res[1]++;
 				return res;
 			}
@@ -680,6 +676,10 @@ int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t
 			uint32_t payload = 0;
 			uint32_t payloadend = 0;
 			if (kind == CHUNK_STEAM_TEXT_MULTILANG) {
+				if (sectionend - labelstart - chunksize < 6) {
+					res[1]++;
+					return res;
+				}
 				HWSReadLong(ffhws, chunksize);
 				payload = ffhws.tellg();
 				if (payload >= sectionend || chunksize >= sectionend - payload) {
@@ -694,18 +694,20 @@ int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t
 				res[1]++;
 				return res;
 			}
-			if (!label.empty() && payload) {
-				ffhws.seekg(payload);
-				if (!ValidateCustomTextPayload(ffhws, payloadend))
-					label.clear();
-			}
 			if (label.empty() || !payload) {
-				ffhws.clear();
-				ffhws.seekg(payload ? payloadend + 1 : labelstart + chunksize + 1);
 				res[1]++;
 				continue;
 			}
+			TextDataStruct block{};
+			ffhws.seekg(payload);
+			block.ReadHWS(ffhws, true, payloadend);
+			bool valid = !ffhws.fail();
+			ffhws.clear();
 			ffhws.seekg(payloadend + 1);
+			if (!valid) {
+				res[1]++;
+				continue;
+			}
 			int index = GetIndexById(objectid);
 			if (index < 0)
 				index = AddCustomBlock(objectid, label);
@@ -714,11 +716,9 @@ int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t
 				continue;
 			}
 			name[index] = label;
-			text_data[index]->text.clear();
-			text_data[index]->SetSize(0);
-			ffhws.seekg(payload);
-			text_data[index]->ReadHWS(ffhws, true);
-			ffhws.seekg(payloadend + 1);
+			text_data[index]->text.swap(block.text);
+			text_data[index]->SetSize(block.size);
+			text_data[index]->MarkDataModified();
 			continue;
 		}
 		for (j = 0; j < amount; j++) {

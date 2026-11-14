@@ -67,7 +67,7 @@ public:
 	void Read(fstream& f);
 	void Write(fstream& f);
 	void WritePPF(fstream& f);
-	void ReadHWS(fstream& f, bool multilang = false);
+	void ReadHWS(fstream& f, bool multilang = false, std::streamoff end = -1);
 	void WriteHWS(fstream& f, bool multilang = false);
 	void WriteSteamPatch(fstream& f, wxArrayString basefile, SteamLanguage lang = GetSteamLanguage());
 	void WriteSteam(fstream& f, SteamLanguage lang = GetSteamLanguage());

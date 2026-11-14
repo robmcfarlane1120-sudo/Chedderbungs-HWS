@@ -893,7 +893,7 @@ uint32_t GetFFIXNextIgnore(uint32_t fromoffset) {
 	return FILE_IGNORE_DATA_PERIOD-(fromoffset-FILE_IGNORE_DATA_FIRST)%FILE_IGNORE_DATA_PERIOD;
 }
 
-void SteamReadFF9String(fstream& f, FF9String& deststr, SteamLanguage lang) {
+void SteamReadFF9String(fstream& f, FF9String& deststr, SteamLanguage lang, std::streamoff end) {
 	unsigned int i = 0;
 	bool reachend = false;
 	bool mainstr = lang == STEAM_LANGUAGE_NONE || lang == GetSteamLanguage();
@@ -903,8 +903,17 @@ void SteamReadFF9String(fstream& f, FF9String& deststr, SteamLanguage lang) {
 			delete[] deststr.raw;
 		deststr.raw = NULL;
 	}
+	std::streamoff start = end < 0 ? 0 : std::streamoff(f.tellg());
+	const unsigned int capacity = sizeof(tmpstr) - 1;
+	unsigned int limit = end < 0 ? capacity : static_cast<unsigned int>(min<std::streamoff>(capacity, max<std::streamoff>(0, end - start)));
 	while (!reachend) {
+		if (i >= limit) {
+			f.setstate(ios::failbit);
+			return;
+		}
 		tmpstr[i] = f.get();
+		if (!f)
+			return;
 		if (tmpstr[i] == 0) {
 			reachend = true;
 			if (mainstr) {
@@ -920,9 +929,15 @@ void SteamReadFF9String(fstream& f, FF9String& deststr, SteamLanguage lang) {
 			}
 		} else if (i >= 5 && tmpstr[i - 5] == '[' && tmpstr[i - 4] == 'T' && tmpstr[i - 3] == 'I' && tmpstr[i - 2] == 'M' && tmpstr[i - 1] == 'E' && tmpstr[i] == '=') {
 			reachend = true;
-			tmpstr[++i] = f.get();
-			while (tmpstr[i] != L']')
-				tmpstr[++i] = f.get();
+			do {
+				if (++i >= limit) {
+					f.setstate(ios::failbit);
+					return;
+				}
+				tmpstr[i] = f.get();
+				if (!f)
+					return;
+			} while (tmpstr[i] != ']');
 			i++;
 			if (mainstr) {
 				deststr.null_terminated = 0;

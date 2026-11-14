@@ -138,7 +138,7 @@ uint32_t GetFFIXOffsetSub(uint32_t beg, uint32_t end);
 uint32_t GetFFIXNextIgnore(uint32_t fromoffset);
 
 // Final Fantasy IX Steam binary manipulation
-void SteamReadFF9String(fstream& f, FF9String& deststr, SteamLanguage lang = GetSteamLanguage());
+void SteamReadFF9String(fstream& f, FF9String& deststr, SteamLanguage lang = GetSteamLanguage(), std::streamoff end = -1);
 void SteamWriteFF9String(fstream& f, FF9String& str, SteamLanguage lang = GetSteamLanguage());
 void SteamWriteFF9StringLight(fstream& f, wstring str);
 uint32_t SteamReadLong(fstream& f, uint32_t& destvalue);
