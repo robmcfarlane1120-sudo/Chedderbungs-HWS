@@ -332,6 +332,7 @@ private:
 	void OnTextCharmapPaletteChoice(wxCommandEvent& event);
 	void OnTextExportCharmap(wxCommandEvent& event);
 	void OnTextManageCharmap(wxCommandEvent& event);
+	void OnTextBlockRightClick(wxContextMenuEvent& event);
 	void OnTextRightClick(wxMouseEvent& event);
 	void OnTextRightClickMenu(wxCommandEvent& event);
 	void OnTextCharmapPaint(wxPaintEvent& event);

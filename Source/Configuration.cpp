@@ -2808,7 +2808,7 @@ wstring* LoadHWS(string filepath, bool* section, bool* sectext, bool* localsec, 
 			} else if (sectiontype[i] == DATA_SECTION_SHOP) {
 				saveset.shopset->LoadHWS(save, sectionlength[i] > SHOP_AMOUNT * SHOP_ITEM_AMOUNT);
 			} else if (sectiontype[i] == DATA_SECTION_TEXT) {
-				int* res = saveset.textset->LoadHWS(save, backup.text);
+				int* res = saveset.textset->LoadHWS(save, backup.text, sectionpos + sectionlength[i]);
 				MACRO_HANDLE_QUANTIFIED_PROBLEM(0, HADES_STRING_HWS_OPEN_WARNING_TEXT_SIZE)
 				MACRO_HANDLE_QUANTIFIED_PROBLEM(1, HADES_STRING_HWS_OPEN_WARNING_TEXT_UNKNOWN)
 				MACRO_HANDLE_QUANTIFIED_PROBLEM(2, HADES_STRING_HWS_OPEN_WARNING_TEXT_UNUSED)
@@ -2902,6 +2902,15 @@ wstring* LoadHWS(string filepath, bool* section, bool* sectext, bool* localsec, 
 //		LoadingDialogUpdate(i);
 	}
 //	LoadingDialogEnd();
+	if (saveset.sectionloaded[DATA_SECTION_FIELD] && saveset.sectionloaded[DATA_SECTION_TEXT]) {
+		for (unsigned int field = 0; field < saveset.fieldset->amount; field++) {
+			auto addition = saveset.fieldset->addition[field];
+			if (!addition) continue;
+			int id = addition->text_block_id;
+			int index = id >= 0 && id <= UINT16_MAX ? saveset.textset->GetIndexById(id) : -1;
+			saveset.fieldset->related_text[field] = index >= 0 ? saveset.textset->text_data[index] : nullptr;
+		}
+	}
 	save.close();
 	if (problem) {
 		res[0] = problemres.str();

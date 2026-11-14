@@ -92,10 +92,10 @@ public:
 	void WritePPF(fstream& ffbin, ClusterSet& clusset);
 	// return value is int[3] to be deleted
 	// {Number of oversized blocks, Number of unknown data, Number of unused blocks}
-	int* LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup);
+	int* LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t sectionend);
 	void WriteHWS(fstream& ffhws, UnusedSaveBackupPart& backup);
 	int GetIndexById(uint16_t blockid);
-	int AddCustomBlock(uint16_t id, const wstring& label, const TextDataStruct* source = nullptr);
+	int AddCustomBlock(uint16_t id, const wstring& label);
 };
 
 struct SpecialTextDataEntry {

@@ -6912,6 +6912,38 @@ void CDDataStruct::OnTextManageCharmap(wxCommandEvent& event) {
 	}
 }
 
+void CDDataStruct::OnTextBlockRightClick(wxContextMenuEvent&) {
+	if (gametype != GAME_TYPE_STEAM || config.dll_usage == 0) return;
+
+	wxMenu menu;
+	menu.Append(wxID_ADD, L"Add Custom Text Block");
+	if (m_textlist->GetPopupMenuSelectionFromUser(menu) != wxID_ADD) return;
+	wxTextEntryDialog nameDialog(this, L"Name for the new text block", L"Add Custom Text Block");
+	if (nameDialog.ShowModal() != wxID_OK) return;
+	wxString label = nameDialog.GetValue().Trim().Trim(false);
+	wxTextEntryDialog idDialog(this, L"Enter an unused text block ID (2000-65535).\nHighest vanilla FFIX message ID: 1461.\nChoose an ID that is unused by your project and other mods.", L"Add Custom Text Block");
+	if (idDialog.ShowModal() != wxID_OK) return;
+	unsigned long id;
+	if (!idDialog.GetValue().ToULong(&id) || id < 2000 || id > UINT16_MAX || label.empty()) {
+		wxMessageBox(L"Enter a name and an ID between 2000 and 65535.", L"Add Custom Text Block", wxOK | wxICON_ERROR, this);
+		return;
+	}
+	int index = textset.AddCustomBlock(static_cast<uint16_t>(id), label.ToStdWstring());
+	if (index < 0) {
+		wxMessageBox(L"This text block ID is already reserved, or the text list is full.", L"Add Custom Text Block", wxOK | wxICON_ERROR, this);
+		return;
+	}
+	MarkDataTextModified(index, CHUNK_TYPE_TEXT);
+	TextDisplayNames();
+	m_fieldtextblock->Append(wxString::Format(L"%lu: ", id) + label);
+	for (unsigned int i = 0; i < textset.amount; i++) {
+		if (textsorted[i] != static_cast<unsigned int>(index)) continue;
+		m_textlist->SetSelection(i);
+		DisplayText(i);
+		break;
+	}
+}
+
 void CDDataStruct::OnTextRightClick(wxMouseEvent& event) {
 	if (event.GetId() == wxID_TEXT) {
 		int newsel = m_textdatalist->HitTest(event.GetPosition());
@@ -8875,37 +8907,7 @@ void CDDataStruct::InitText(void) {
 	textset.Load(f, cluster);
 	if (gametype == GAME_TYPE_PSX) f.close();
 	TextDisplayNames(true);
-	m_textlist->Bind(wxEVT_CONTEXT_MENU, [this](wxContextMenuEvent&) {
-		if (gametype != GAME_TYPE_STEAM || config.dll_usage == 0) return;
-
-		wxMenu menu;
-		menu.Append(wxID_ADD, L"Add Custom Text Block");
-		if (m_textlist->GetPopupMenuSelectionFromUser(menu) != wxID_ADD) return;
-		wxTextEntryDialog nameDialog(this, L"Name for the new text block", L"Add Custom Text Block");
-		if (nameDialog.ShowModal() != wxID_OK) return;
-		wxString label = nameDialog.GetValue().Trim().Trim(false);
-		wxTextEntryDialog idDialog(this, L"Enter an unused text block ID (2000-65535).\nHighest vanilla FFIX message ID: 1461.\nChoose an ID that is unused by your project and other mods.", L"Add Custom Text Block");
-		if (idDialog.ShowModal() != wxID_OK) return;
-		unsigned long id;
-		if (!idDialog.GetValue().ToULong(&id) || id < 2000 || id > UINT16_MAX || label.empty()) {
-			wxMessageBox(L"Enter a name and an ID between 2000 and 65535.", L"Add Custom Text Block", wxOK | wxICON_ERROR, this);
-			return;
-		}
-		int index = textset.AddCustomBlock(static_cast<uint16_t>(id), label.ToStdWstring());
-		if (index < 0) {
-			wxMessageBox(L"This text block ID is already reserved, or the text list is full.", L"Add Custom Text Block", wxOK | wxICON_ERROR, this);
-			return;
-		}
-		MarkDataTextModified(index, CHUNK_TYPE_TEXT);
-		TextDisplayNames();
-		m_fieldtextblock->Append(wxString::Format(L"%lu: ", id) + label);
-		for (unsigned int i = 0; i < textset.amount; i++) {
-			if (textsorted[i] != static_cast<unsigned int>(index)) continue;
-			m_textlist->SetSelection(i);
-			DisplayText(i);
-			break;
-		}
-	});
+	m_textlist->Bind(wxEVT_CONTEXT_MENU, &CDDataStruct::OnTextBlockRightClick, this);
 	for (i = 0; i < textset.amount; i++)
 		m_fieldtextblock->Append(_(textset.name[i]));
 	saveset.sectionloaded[DATA_SECTION_TEXT] = true;

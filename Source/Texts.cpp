@@ -27,6 +27,7 @@ int TextDataStruct::AddText(int id, FF9String& value) {
 	SetSize(size + reqlen);
 	int insertindex = -1;
 	if (id < 0) {
+		id = 0;
 		for (unsigned int i = 0; i < text.size(); i++)
 			id = max(id, text[i].id + 1);
 	} else {
@@ -575,7 +576,7 @@ void TextDataSet::WritePPF(fstream& ffbin, ClusterSet& clusset) {
 	}
 }
 
-int TextDataSet::AddCustomBlock(uint16_t id, const wstring& label, const TextDataStruct* source) {
+int TextDataSet::AddCustomBlock(uint16_t id, const wstring& label) {
 	if (GetGameType() != GAME_TYPE_STEAM || GetIndexById(id) >= 0 ||
 		HADES_STRING_TEXT_BLOCK_NAME.count(id) || label.empty() || amount >= 2000)
 		return -1;
@@ -586,8 +587,6 @@ int TextDataSet::AddCustomBlock(uint16_t id, const wstring& label, const TextDat
 	block->custom_block = true;
 	block->loaded = true;
 	block->size = 0;
-	if (source)
-		block->text = source->text;
 	block->MarkDataModified();
 	struct_id.push_back(id);
 	name.push_back(label);
@@ -598,7 +597,7 @@ int TextDataSet::AddCustomBlock(uint16_t id, const wstring& label, const TextDat
 
 static constexpr uint8_t CUSTOM_TEXT_BLOCK = 0xFA; // Name followed by multilingual text chunk.
 
-int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup) {
+int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uint32_t sectionend) {
 	unsigned int i, j, k;
 	uint32_t chunksize, clustersize, chunkpos, objectpos, objectsize;
 	uint16_t nbmodified, objectid, fileobjectid;
@@ -611,35 +610,61 @@ int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup) {
 		objectpos = ffhws.tellg();
 		HWSReadShort(ffhws, objectid);
 		HWSReadLong(ffhws, clustersize);
-		// A custom record declares its block before the dialogue payload.
-		auto firstchunk = ffhws.tellg();
-		if (GetGameType() == GAME_TYPE_STEAM && GetHWSGameType() == GAME_TYPE_STEAM &&
-			ffhws.peek() == CUSTOM_TEXT_BLOCK) {
+		if (GetHWSGlobalVersion() >= 103 && GetGameType() == GAME_TYPE_STEAM &&
+			GetHWSGameType() == GAME_TYPE_STEAM && ffhws.peek() == CUSTOM_TEXT_BLOCK) {
 			ffhws.get();
 			HWSReadLong(ffhws, chunksize);
-			auto labelstart = ffhws.tellg();
+			uint32_t labelstart = ffhws.tellg();
+			if (labelstart > sectionend || chunksize < 4 || chunksize > sectionend - labelstart) {
+				res[1]++;
+				return res;
+			}
+			uint32_t labellength;
+			HWSReadLong(ffhws, labellength);
 			wstring label;
-			HWSReadWString(ffhws, label);
+			if (labellength && labellength == chunksize - 4) {
+				string utf8(labellength, '\0');
+				ffhws.read(&utf8[0], labellength);
+				label = wxString::FromUTF8(utf8.data(), utf8.size()).ToStdWstring();
+			}
+			ffhws.seekg(labelstart + chunksize);
+			int kind = ffhws.get();
+			uint32_t payload = 0;
+			uint32_t payloadend = 0;
+			if (kind == CHUNK_STEAM_TEXT_MULTILANG) {
+				HWSReadLong(ffhws, chunksize);
+				payload = ffhws.tellg();
+				if (payload >= sectionend || chunksize >= sectionend - payload) {
+					res[1]++;
+					return res;
+				}
+				payloadend = payload + chunksize;
+				ffhws.seekg(payloadend);
+				kind = ffhws.get();
+			}
+			if (kind != CHUNK_SPECIAL_END) {
+				res[1]++;
+				return res;
+			}
+			if (label.empty() || !payload) {
+				res[1]++;
+				continue;
+			}
 			int index = GetIndexById(objectid);
 			if (index < 0)
 				index = AddCustomBlock(objectid, label);
-			if (index >= 0 && text_data[index]->custom_block) {
-				name[index] = label;
-				text_data[index]->text.clear();
-				text_data[index]->SetSize(0);
-				clustersize = 0;
-			} else {
-				// Do not let a custom record overwrite a vanilla block with a conflicting ID.
-				ffhws.seekg(labelstart + static_cast<streamoff>(chunksize));
-				for (int kind; (kind = ffhws.get()) != EOF && kind != CHUNK_SPECIAL_END;) {
-					HWSReadLong(ffhws, chunksize);
-					ffhws.seekg(chunksize, ios::cur);
-				}
+			if (index < 0 || !text_data[index] || !text_data[index]->custom_block) {
 				res[2]++;
 				continue;
 			}
+			name[index] = label;
+			text_data[index]->text.clear();
+			text_data[index]->SetSize(0);
+			ffhws.seekg(payload);
+			text_data[index]->ReadHWS(ffhws, true);
+			ffhws.seekg(payloadend + 1);
+			continue;
 		}
-		ffhws.seekg(firstchunk);
 		for (j = 0; j < amount; j++) {
 			fileobjectid = struct_id[j];
 			if (text_data[j])
@@ -668,7 +693,7 @@ int* TextDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup) {
 								}
 						} else if (chunktype == CHUNK_STEAM_TEXT_MULTILANG) {
 							text_data[j]->ReadHWS(ffhws, true);
-						} else if (chunktype != CUSTOM_TEXT_BLOCK || !text_data[j] || !text_data[j]->custom_block)
+						} else
 							res[1]++;
 						ffhws.seekg(chunkpos + chunksize);
 						HWSReadChar(ffhws, chunktype);
@@ -860,6 +885,7 @@ int SpecialTextDataStruct::AddText(int id, FF9String& value) {
 	}
 	int insertindex = -1;
 	if (id < 0) {
+		id = 0;
 		for (unsigned int i = 0; i < text.size(); i++)
 			id = max(id, text[i].id + 1);
 	} else {

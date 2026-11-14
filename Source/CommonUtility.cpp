@@ -171,7 +171,8 @@ bool MemoriaUtility::ExportDictionaryPatchLines(wxString filename, wxString remo
 		wxFile inpatchfile(filename, wxFile::OpenMode::read);
 		if (inpatchfile.IsOpened()) {
 			wxString wholepreviouspatch;
-			inpatchfile.ReadAll(&wholepreviouspatch);
+			if (!inpatchfile.ReadAll(&wholepreviouspatch))
+				return false;
 			inpatchfile.Close();
 			size_t prevpos = 0, battlemapentrypos = wholepreviouspatch.find(removeinstruction);
 			while (battlemapentrypos != wxString::npos) {
@@ -187,7 +188,8 @@ bool MemoriaUtility::ExportDictionaryPatchLines(wxString filename, wxString remo
 				prevpos++;
 				battlemapentrypos = wholepreviouspatch.find(removeinstruction, prevpos);
 			}
-			previouspatch += wholepreviouspatch.substr(prevpos);
+			if (prevpos != wxString::npos)
+				previouspatch += wholepreviouspatch.substr(prevpos);
 			int newlinecount, newlineend;
 			for (prevpos = 0; prevpos < previouspatch.length(); prevpos++) {
 				newlinecount = 0;
@@ -221,16 +223,15 @@ bool MemoriaUtility::ExportDictionaryPatchLines(wxString filename, wxString remo
 				previouspatch += "\n";
 				newlinecount++;
 			}
+		} else {
+			return false;
 		}
 	}
 	wxFile patchfile(filename, wxFile::OpenMode::write);
 	if (!patchfile.IsOpened())
 		return false;
-	if (prepend) patchfile.Write(appendstr);
-	patchfile.Write(previouspatch);
-	if (!prepend) patchfile.Write(appendstr);
-	patchfile.Close();
-	return true;
+	bool written = patchfile.Write(prepend ? appendstr + previouspatch : previouspatch + appendstr);
+	return patchfile.Close() && written;
 }
 
 wxArrayString MemoriaUtility::LoadCSVLines(wxString filename, wxArrayString* metadata) {

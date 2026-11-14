@@ -719,6 +719,7 @@ SaveSet CommandFrame::MergeDataSets() {
 					result.fieldset->tim_data.push_back(dataset[i].fieldset.tim_data[j]);
 					result.fieldset->role.push_back(dataset[i].fieldset.role[j]);
 					result.fieldset->related_text.push_back(dataset[i].fieldset.related_text[j]);
+					result.fieldset->addition.push_back(dataset[i].fieldset.addition[j]);
 					result.sectionloaded[DATA_SECTION_FIELD] = true;
 					if (dataset[i].saveset.sectionmodified[DATA_SECTION_FIELD])
 						result.sectionmodified[DATA_SECTION_FIELD] = true;
