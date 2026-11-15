@@ -1,3 +1,5 @@
+// Modified by Cheddarbung - November 2026. Based on Hades Workshop 0.53 by Tirlititi. Distributed under GNU GPL v3.
+
 #include "Scripts.h"
 
 #include "main.h"

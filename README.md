@@ -1,6 +1,8 @@
 # Chedderbung's HWS v1.0
 
-A standalone Windows x64 build based on Tirlititi's Hades Workshop 0.53 (upstream commit `f428246`). It keeps HWS's FFIX editing workflow and brings the following changes into the editor.
+An unofficial Windows x64 build of Hades Workshop 0.53, originally developed by [Tirlititi](https://github.com/Tirlititi/Hades-Workshop) (upstream commit f428246).
+
+> **Modified by Cheddarbung — November 2026. Based on Hades Workshop 0.53 by Tirlititi. Distributed under GNU GPL v3.** See [LICENSE](LICENSE).
 
 ## Appearance and navigation
 
@@ -24,14 +26,18 @@ A standalone Windows x64 build based on Tirlititi's Hades Workshop 0.53 (upstrea
 
 ## Building on Windows
 
-The supported configuration for this build is **Release | x64**, with Visual Studio 2022 C++ tools, wxWidgets 3.3.4 Windows x64 headers and DLL development libraries, and Autodesk FBX SDK 2020.0.1 with its VS 2017 x64 release libraries.
+The supported configuration for this build is **Release | x64**, with Visual Studio 2022 C++ tools, wxWidgets 3.3.4 Windows x64 headers and DLL development libraries, and Autodesk FBX SDK 2020.0.1 with its VS 2017 x64 release libraries. The build has also been verified with FBX SDK 2020.1.
 
 From a Visual Studio developer shell:
 
 ```powershell
-msbuild Hades-Workshop.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 '/p:WxWidgetsRoot=C:\deps\wx334' '/p:FbxSdkRoot=C:\deps\FBX'
+msbuild Hades-Workshop.vcxproj /p:Configuration=Release /p:Platform=x64 '/p:WxWidgetsRoot=C:\deps\wx334' '/p:FbxSdkRoot=C:\deps\FBX'
 ```
 
-The wxWidgets folder should contain `include` and `lib\vc14x_x64_dll`. The FBX folder should contain `include` and `lib\vs2017\x64\release`. Place the matching wxWidgets runtime DLLs beside the built executable to run it. This repository distributes source under the upstream GPL license. Build dependencies and game assets are obtained separately.
+The wxWidgets folder should contain `include` and `lib\vc14x_x64_dll`. The FBX folder should contain `include` and `lib\vs2017\x64\release`. The build produces x64/Release/HadesWorkshop.exe. Place the matching wxWidgets 3.3.4 x64 runtime DLLs beside it to run the editor. Build dependencies and game assets are obtained separately.
 
-Based on [Tirlititi's Hades Workshop](https://github.com/Tirlititi/Hades-Workshop).
+## Third-party notices
+
+- The wxWidgets submodule carries the [wxWindows Library Licence](https://www.wxwidgets.org/about/licence/).
+- The bundled Squish sources retain Simon Brown's copyright and license notices in Source/Squish.
+- The inherited Source/fbxsdk.h carries Autodesk's copyright and refers to the FBX SDK license agreement. Obtain the SDK separately from [Autodesk](https://forge.autodesk.com/developer/overview/fbx-sdk) and consult its terms before redistributing SDK material or a build linked with it.

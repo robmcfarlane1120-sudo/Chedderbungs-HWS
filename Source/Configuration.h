@@ -1,3 +1,5 @@
+// Modified by Cheddarbung - November 2026. Based on Hades Workshop 0.53 by Tirlititi. Distributed under GNU GPL v3.
+
 #ifndef _CONFIGURATION_H
 #define _CONFIGURATION_H
 
