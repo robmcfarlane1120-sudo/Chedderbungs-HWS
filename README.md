@@ -1,43 +1,226 @@
-# Chedderbung's HWS v1.0
+CHEDDERBUNG'S HADES WORKSHOP v1.0
+PRACTICAL ADDITIONS AND CHANGES
+Compared with Tirlititi's Hades Workshop master (base commit f428246)
+Branch: robmcfarlane1120-sudo/Hades-Workshop / codex/chedderbung-v1.0
+Reviewed: 15 November 2026
 
-An unofficial Windows x64 build of Hades Workshop 0.53, originally developed by [Tirlititi](https://github.com/Tirlititi/Hades-Workshop) (upstream commit f428246).
+This is a user-facing inventory of the changes in the linked branch, not a list of all features available in Hades Workshop. Entries describe what a user can actually click, edit, view, save, import, export, or configure. Features already in Tirlititi's master are not credited here.
 
-> **Modified by Cheddarbung — November 2026. Based on Hades Workshop 0.53 by Tirlititi. Distributed under GNU GPL v3.** See [LICENSE](LICENSE).
+======================================================================
+1. INTERFACE, APPEARANCE AND NAVIGATION
+======================================================================
 
-## Appearance and navigation
+- Updated Windows interface to a dark palette: charcoal surfaces, darker tabs, light text, and gray input controls.
+- Updated the Windows build to wxWidgets 3.3.4, including the Windows dark-mode-compatible widget configuration.
+- Enlarged fonts and controls throughout the editor, particularly for high-resolution desktop displays.
+- Widened major sidebar lists so longer names and numeric IDs remain visible.
+- Increased main tab and script-text sizing.
+- Added two-key prefix navigation to supported single-selection lists and non-editable dropdowns.
+  - Hold an initial letter and press a second character to jump to names with that prefix.
+  - Repeat the combination to cycle through matching entries.
+  - Ignore numeric prefixes such as '0600 :' when matching names.
+- Enlarged batch-export selection dialogs to accommodate the scaled font and controls.
+- Made the Create Steam Mod OK button the initial keyboard focus/default Enter action.
+- Made the enabled Open Mod Import button the initial keyboard focus/default Enter action.
+- Added a more legible cyan warning in the Create Steam Mod interface.
 
-- **Dark Windows UI.** Charcoal panels, gray tabs, lighter gray text inputs, and off-white text. The build uses wxWidgets 3.3.4 for Windows dark mode.
-- **Larger layout.** Wider sidebar lists show more names and IDs. Larger controls and fonts make the editor easier to read at 1440p. Main tabs and script text get additional sizing.
-- **Two-key list search.** Hold the first letter and tap the second to jump to matching names in single-select lists and non-editable dropdowns. For example, hold **M** and tap **E** to cycle through names beginning with **Me**. Numeric prefixes such as `0600 :` are skipped.
+======================================================================
+2. SCRIPT EDITOR: EDITING AND READING CODE
+======================================================================
 
-## Scripts and dialogue
+- Replaced the plain script text editing control with wxWidgets Styled Text Control (Scintilla).
+- Added script syntax colouring for keywords, opcodes, identifiers, numbers, comments, and strings.
+- Added line numbers with an automatically sized margin.
+- Added indentation guides and automatic indentation on new lines.
+- Added fold markers and collapsible script blocks.
+- Added brace/bracket pairing and unmatched-brace highlighting.
+- Added visual highlighting of the currently enclosing brace block.
+- Added highlighting of matching occurrences of the selected script variable.
+- Added highlighting of the current editing line.
+- Configured a monospaced Consolas editing font, no soft word wrap, and four-space indentation.
+- Added in-function Find with Ctrl+F.
+  - F3 moves to the next match.
+  - Shift+F3 moves to the previous match.
+  - Supports case-sensitive matching and wrapping between the end and beginning of the function.
+- Enlarged the Function List column and associated script-editor controls.
+- Added Rename Function to the function-list context menu.
+  - Existing function name/alias is prefilled.
+  - Empty/default naming can restore the built-in label.
+  - Custom display aliases are saved with project-local script metadata.
+  - Renaming a display label does not rename the underlying script function or alter game bytecode.
+- Improved insertion/edit handling so opening a function in the editor does not automatically mark unchanged script text as needing Parse.
+- Retained Hades Workshop's existing script parser and project serialization path rather than replacing them with a different scripting language.
 
-- **Find in Script.** Use **Ctrl+F**, **F3**, and **Shift+F3** for find, next, and previous in the displayed function. Search supports case matching and wraparound.
-- **Saved function labels.** Right-click a function and choose **Rename Function**. The label is stored with the project's local script data and changes how the function is displayed in the list. Script identities and game bytecode use their original identifiers.
-- **Custom field text blocks.** Create an empty named block with its own ID, edit its dialogue, and assign it from the field's Text Block dropdown. HWS saves the block in the `.hws` project and exports the localized `.mes` files and Memoria `MessageFile` registrations.
-- **Dialogue list actions.** **Add 10** appends blank entries in one step. **Go to End** jumps to the final entry.
+======================================================================
+3. SCRIPT OPCODE / FUNCTION REFERENCE WINDOW
+======================================================================
 
-## Custom fields and projects
+- Enlarged the opcode reference browser into a separate, independently positioned window.
+- Increased the function/reference-list width and search-field size.
+- Sorted named opcodes alphabetically for browsing.
+- Moved unnamed/hex-style opcodes below named commands.
+- Added right-click 'Copy Function Call' for a selected opcode.
+- Added Ctrl+C to copy the selected opcode call.
+- Generated copied calls include zero-valued argument placeholders in the correct number of positions.
+- Added a special placeholder layout for variable-length region-coordinate calls.
+- Double-clicking a reference inserts the full call into the script editor.
+- Insertion preserves the current line's indentation and places the call on a separate line where appropriate.
+- After insertion, selection can land on the first argument placeholder for immediate editing.
+- Improved reference-window ownership/closing so the separate window can be closed while the editor remains open.
 
-- **Embedded field previews.** **Change Preview** embeds a selected PNG in a custom field's `.hws` project data. It follows the project when it is renamed or saved under a new filename. The preview image affects the editor display only.
-- **Script-only custom field export.** With **Raw Assets** selected, **Export custom field scripts only** exports the custom field scripts and their `FieldScene` registrations while preserving existing background, walkmesh, and SPS files. The checkbox remembers its state for the current editor session.
-- **Project open and save.** HWS remembers the project folder, prefills the save path for the current project, and displays the project filename and unsaved marker in the title bar.
-- **Standalone executable.** The editor features above run without the external QoL companion. This build still uses Memoria for the game's mod loading.
+======================================================================
+4. CUSTOM FIELD DIALOGUE / TEXT BLOCKS
+======================================================================
 
-## Building on Windows
+- Added 'Add Custom Text Block' to the text-block list's right-click menu for Steam projects using Memoria-compatible DLL mode.
+- Prompts for a text-block name and an unused ID between 2000 and 65535.
+- Checks for invalid and duplicate/reserved IDs before adding the block.
+- Adds the new custom block to the project's text-block list and field text-block selector.
+- Displays custom block IDs in list labels alongside the block names.
+- Allows a custom field to select its new block via the existing Text Block dropdown.
+- Saves custom text blocks inside the .hws project file.
+- Writes custom blocks into language-specific .mes assets on Steam mod export.
+- Writes the corresponding Memoria MessageFile registration entries on export.
+- Added 'Add 10' to the dialogue-entry context menu to append ten blank entries in one action.
+- Added 'Go to End' to jump to the final dialogue entry.
+- Added custom text-block bounds checks and more defensive text reading/loading.
 
-The supported configuration for this build is **Release | x64**, with Visual Studio 2022 C++ tools, wxWidgets 3.3.4 Windows x64 headers and DLL development libraries, and Autodesk FBX SDK 2020.0.1 with its VS 2017 x64 release libraries. The build has also been verified with FBX SDK 2020.1.
+======================================================================
+5. PROJECT WORKSPACE: FILES CREATED FOR EXTERNAL EDITING
+======================================================================
 
-From a Visual Studio developer shell:
+- Creates a 'CodexWorkspace' directory beside HadesWorkshop.exe.
+- Creates an isolated workspace subfolder for each saved Steam .hws project context.
+- Separates workspace identities using the saved project path/game installation and relevant language configuration.
+- Exports modified field scripts as editable text files in Fields/.
+- Exports modified battle scripts as editable text files in Battles/.
+- Exports field dialogue blocks to TextBlocks/<language>/.
+- Creates workspace-format headers and #HW markers around script/text units.
+- Includes a generated opcodes.md reference containing available HWS command names and argument positions.
+- Includes AGENTS.md guidance explaining the expected file structure and syntax for external editors.
+- Creates text-block editing guidance under TextBlocks/AGENTS.md.
+- Creates Metadata/ reference files for field and battle script variable declarations and allocation information.
+- Refreshes read-only variable-allocation snapshots on parsing and saving, including when external edits remain pending.
+- Adds 'Open Workspace' within Modifications Manager to open the active workspace directory.
+- Adds 'Add to Workspace' beside field-script editing controls to include a selected field without reopening the project.
+- Adds 'Add to Workspace' within text editing controls to include a selected text block.
+- Adds 'Review Changes' controls directly in the field and text panels as well as the Modifications Manager workflow.
+- Refreshes pending-edit button availability while HWS is open; external edits can be detected without restarting the program.
+- Synchronizes field scripts after accepted in-editor changes.
+- Synchronizes new/edited text blocks into workspace files.
+- Preserves externally modified workspace files during subsequent project opens/synchronization instead of silently overwriting them.
+- Keeps independent internal baseline copies under .hws-baseline/ and companion SHA-256 tracking values.
+- Writes workspace text as UTF-8-normalized content and uses hash comparisons to detect modifications.
+- Limits individual workspace text files to a defined maximum size in the workspace reader.
 
-```powershell
-msbuild Hades-Workshop.vcxproj /p:Configuration=Release /p:Platform=x64 '/p:WxWidgetsRoot=C:\deps\wx334' '/p:FbxSdkRoot=C:\deps\FBX'
-```
+======================================================================
+6. WORKSPACE CHANGE REVIEW, VALIDATION AND APPLICATION
+======================================================================
 
-The wxWidgets folder should contain `include` and `lib\vc14x_x64_dll`. The FBX folder should contain `include` and `lib\vs2017\x64\release`. The build produces x64/Release/HadesWorkshop.exe. Place the matching wxWidgets 3.3.4 x64 runtime DLLs beside it to run the editor. Build dependencies and game assets are obtained separately.
+- Added a workspace Review Changes dialog for externally edited project files.
+- Detects modifications by comparing workspace content with the stored accepted baseline.
+- Shows before/after changes for selected field scripts, battle scripts, and text blocks.
+- Supports checking only the changed files to apply, rather than always importing every edit.
+- Provides an 'Apply & Parse' action for staged changes.
+- Validates selected script changes using temporary/staged script data before changing the open project's scripts.
+- Validates edited text blocks and their message IDs before applying dialogue changes.
+- Reports parsing/validation errors instead of silently accepting malformed scripts.
+- Detects conflicts when the same source script has changed inside HWS since the external baseline was produced.
+- Preserves pending external changes for conflict review instead of overwriting them automatically.
+- Creates recovery snapshots of existing baseline files before an apply operation.
+- Applies successfully validated changes to the open HWS project, leaving Save Mod as a separate user action.
+- Allows inspecting the resulting script and dialogue in HWS before saving/exporting.
+- Includes a compact diff implementation with safeguards for very large comparisons.
+- Produces error/status messages when workspace files or their snapshots cannot be read or written.
 
-## Third-party notices
+======================================================================
+7. CUSTOM FIELD PREVIEW AND ASSET-SAFE EXPORT
+======================================================================
 
-- The wxWidgets submodule carries the [wxWindows Library Licence](https://www.wxwidgets.org/about/licence/).
-- The bundled Squish sources retain Simon Brown's copyright and license notices in Source/Squish.
-- The inherited Source/fbxsdk.h carries Autodesk's copyright and refers to the FBX SDK license agreement. Obtain the SDK separately from [Autodesk](https://forge.autodesk.com/developer/overview/fbx-sdk) and consult its terms before redistributing SDK material or a build linked with it.
+- Added 'Change Preview' to the custom-field interface.
+- Selects a PNG image to display as the custom field's preview in HWS.
+- Validates that the selected image is readable and within the allowed size limit (32 MB).
+- Stores the selected PNG inside the .hws project's custom field data.
+- Keeps that preview with the project when the project is renamed or saved elsewhere.
+- Uses the embedded preview in the HWS field display; the preview does not itself replace an in-game field background.
+- Added 'Export custom field scripts only' to the Create Steam Mod dialog.
+- Available for the Raw Assets export path.
+- Exports custom field scripts and the required FieldScene registrations.
+- Skips rewriting the custom field's existing background/BGX assets.
+- Skips rewriting its walkmesh/BGI bytes.
+- Skips rewriting its SPS pool assets.
+- Stores the script-only export checkbox setting across editor restarts.
+- Updated custom-battle export handling to avoid duplicate background-map registrations.
+
+======================================================================
+8. OPEN MOD, SAVE MOD AND PROJECT STATE
+======================================================================
+
+- Remembers the last FFIX launcher/game location used for opening a game.
+- Remembers the last .hws location used for opening a project.
+- Opens Open Mod and Save Mod with separate, correctly configured file dialogs.
+- Prefills Save Mod with the current project's filename/location.
+- Preserves the active project's save destination when importing a different .hws file into the current project.
+- Requires confirmation for project/game loading in the relevant dialogs.
+- Displays the active .hws filename in the HWS window title.
+- Displays an unsaved-changes indicator when the project has modifications.
+- Reports .hws project import/loading progress through the loading dialog.
+- Improves progress-bar updates during project imports.
+- Saves the HadesWorkshop.conf configuration beside the executable instead of depending on the shell's current working directory.
+
+======================================================================
+9. SCRIPT AND DATA-HANDLING RELIABILITY FIXES
+======================================================================
+
+- Raised script operation argument-count storage to handle large switch statements without an 8-bit overflow.
+- Added parsing bounds checks for high-argument-count and region-coordinate operations.
+- Corrected selected script argument encoding/decoding cases, including signed 24-bit handling.
+- Prevented unsafe access to a nonexistent following opcode in selected script-generation paths.
+- Improved preservation of script routes when editing in Single Language Mode.
+- Added handling for an older single-return route edge case during script loading.
+- Adjusted serialisation of language-route index counts to handle differing route lengths more defensively.
+- Fixed cases where extra language tags could appear after edits in Single Language Mode.
+- Improved handling of function-list and script-entry insertions.
+- Added safety checks around text data sizes, message-block boundaries and string reads.
+- Added checks/size fixes to batch export/import dialogs and workspace parsing.
+- Added a safer file-read/write path in patch-line exporting; supports prepending entries where required.
+- Updated sequence copying/metadata handling in selected enemy battle paths.
+- Improved logging around selected data-loading and parsing operations.
+
+======================================================================
+10. BUILD, PACKAGING AND DEPLOYMENT
+======================================================================
+
+- Set up the maintained Windows Release x64 build with Visual Studio 2022's v143 platform toolset.
+- Made wxWidgets and FBX SDK include/library roots configurable through MSBuild properties.
+- Added wxWidgets 3.3.4 compatibility settings and a small compatibility header.
+- Added wxWidgets Styled Text Control dependency support for the new script editor.
+- Standardized x64 build output and intermediate file locations.
+- Added Publish-HWS.ps1 for installation-local building and publishing.
+- Added a -StageOnly mode that builds and validates the runtime package without replacing the installed editor.
+- Added runtime dependency checks and validated staging prior to publishing.
+- Added protection against deploying over HWS while it is running.
+- Added backup/rollback handling for replaced runtime files.
+- Preserves local configuration and Codex workspace files during publishing.
+- Allows installation/dependency locations to be passed to the publish script.
+- Added .gitignore rules for local IDE caches, publishing intermediates and build logs.
+- Updated README and CHANGELOG documentation.
+- Retained attribution to Tirlititi and the inherited GPL v3 license.
+- Added notices covering wxWidgets, Squish and Autodesk FBX SDK dependencies.
+
+
+======================================================================
+SOURCE AND SCOPE
+======================================================================
+
+Live GitHub comparison:
+https://github.com/Tirlititi/Hades-Workshop/compare/master...robmcfarlane1120-sudo:Hades-Workshop:codex/chedderbung-v1.0?expand=1
+
+Source branch README:
+https://github.com/robmcfarlane1120-sudo/Hades-Workshop/blob/codex/chedderbung-v1.0/README.md
+
+Source branch CHANGELOG:
+https://github.com/robmcfarlane1120-sudo/Hades-Workshop/blob/codex/chedderbung-v1.0/CHANGELOG.md
+
+Comparison status at review: 11 commits ahead of upstream master, 0 behind.
+Practical behaviour described here comes from the source comparison, README, CHANGELOG and inspected code. This document is not a certification of runtime testing.
