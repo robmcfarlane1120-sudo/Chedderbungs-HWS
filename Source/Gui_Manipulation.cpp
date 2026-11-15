@@ -751,10 +751,9 @@ void CDDataStruct::ChangeFF9StringSteamLanguage(SteamLanguage newlang) {
 //          Common             //
 //=============================//
 
-IOHWSMessage::IOHWSMessage(wxWindow* parent) :
-	IOHWSWindow(parent),
-	section_box(new wxCheckBox*[DATA_SECTION_AMOUNT]),
-	section_text_box(new wxCheckBox*[DATA_SECTION_AMOUNT]) {
+IOHWSMessage::IOHWSMessage(wxWindow* parent, bool saving) :
+	IOHWSWindow(parent, saving ? wxFLP_SAVE | wxFLP_OVERWRITE_PROMPT : wxFLP_OPEN | wxFLP_FILE_MUST_EXIST),
+	save(saving), section(NULL), sectext(NULL) {
 	section_box[DATA_SECTION_SPELL] = m_spell;
 	section_box[DATA_SECTION_CMD] = m_command;
 	section_box[DATA_SECTION_SUPPORT] = m_support;
@@ -795,7 +794,9 @@ void IOHWSMessage::UpdateLoadableSection() {
 	char* hwsname = new char[hwslen+1];
 	hwsname[hwslen] = 0;
 	strncpy(hwsname, (const char*)m_hwspicker->GetPath().mb_str(), hwslen);
-	if (PreloadHWS(hwsname,section))
+	const bool validProject = hwslen > 0 && PreloadHWS(hwsname, section) == 0;
+	m_buttonok->Enable(validProject);
+	if (!validProject)
 		for (i=0;i<DATA_SECTION_AMOUNT;i++)
 			section[i] = false;
 	for (i=0;i<DATA_SECTION_AMOUNT;i++) {
@@ -817,7 +818,7 @@ void IOHWSMessage::UpdateLoadableSection() {
 }
 
 void IOHWSMessage::OnChangeFile(wxFileDirPickerEvent& event) {
-	if (!save)
+	if (!save && section)
 		UpdateLoadableSection();
 }
 
@@ -838,14 +839,12 @@ void IOHWSMessage::OnCheckSection(wxCommandEvent& event) {
 	}
 }
 
-int IOHWSMessage::ShowModal(bool sv, bool* sct, bool* scttxt, bool* scton) {
+int IOHWSMessage::ShowModal(bool* sct, bool* scttxt, bool* scton) {
 	unsigned int i;
-	save = sv;
 	section = sct;
 	sectext = scttxt;
 	if (save) {
 		SetTitle(_(HADES_STRING_HWS_SAVE_TITLE));
-		m_hwspicker->SetWindowStyle(wxFLP_SAVE | wxFLP_OVERWRITE_PROMPT | wxFLP_USE_TEXTCTRL);
 		m_buttonok->SetLabel(_(HADES_STRING_HWS_SAVE_CONFIRM));
 		for (i = 0; i < DATA_SECTION_AMOUNT; i++) {
 			section_box[i]->Enable(section[i]);
@@ -861,7 +860,6 @@ int IOHWSMessage::ShowModal(bool sv, bool* sct, bool* scttxt, bool* scton) {
 		m_fieldlocal->SetValue(scton[DATA_SECTION_FIELD]);
 	} else {
 		SetTitle(_(HADES_STRING_HWS_OPEN_TITLE));
-		m_hwspicker->SetWindowStyle(wxFLP_OPEN | wxFLP_FILE_MUST_EXIST | wxFLP_USE_TEXTCTRL);
 		m_buttonok->SetLabel(_(HADES_STRING_HWS_OPEN_CONFIRM));
 		UpdateLoadableSection();
 	}

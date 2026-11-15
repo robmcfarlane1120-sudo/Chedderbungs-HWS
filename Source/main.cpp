@@ -8,11 +8,13 @@
 #include "main.h"
 
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <wx/cmdline.h>
 #include <wx/fileconf.h>
 #include <wx/stdpaths.h>
+#include <wx/utils.h>
 #include "main_command.h"
 #include "Gui_LoadingDialog.h"
 #include "Gui_Preferences.h"
@@ -214,42 +216,53 @@ void MainFrame::OnExitClick(wxCommandEvent& event) {
 	Destroy();
 }
 
+static wxString SessionSettingsPath() {
+	const wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+	return exe.GetPathWithSep() + "HwsSession.ini";
+}
+
 void MainFrame::OnOpenClick(wxCommandEvent& event) {
+	wxFileConfig settings(wxEmptyString, wxEmptyString, SessionSettingsPath(), wxEmptyString, wxCONFIG_USE_LOCAL_FILE);
+	const wxFileName previous(settings.Read("StartupGame", wxEmptyString));
+	wxFileDialog picker(this, HADES_STRING_OPEN_FRAME_NAME, previous.GetPath(),
+		previous.FileExists() ? previous.GetFullName() : wxString(), HADES_STRING_OPEN_FILTERS,
+		wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+	if (picker.ShowModal() == wxID_OK && OpenGame(picker.GetPath()) &&
+		wxFileName(picker.GetPath()).GetExt().CmpNoCase("exe") == 0)
+		settings.Write("StartupGame", picker.GetPath());
+}
+
+bool MainFrame::OpenGame(const wxString& path) {
 	if (CDPanelAmount >= MAX_CD_PANELS) {
 		wxLogError(HADES_STRING_OPEN_ERROR_LIMIT, MAX_CD_PANELS);
-		return;
+		return false;
 	}
 	unsigned int i;
 	bool success = false;
-	wxFileDialog* openFileDialog = new wxFileDialog(this, HADES_STRING_OPEN_FRAME_NAME, "", "", HADES_STRING_OPEN_FILTERS, wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-	if (openFileDialog->ShowModal() == wxID_CANCEL) {
-		openFileDialog->Destroy();
-		return;
-	}
 	ConfigurationSet* configalloc = new ConfigurationSet; // Debug : ConfigurationSet, much like fstream, must never be copied ; ToDo : delete it at some point
 	ConfigurationSet& config = *configalloc;
-	string filename = openFileDialog->GetPath().ToStdString();
+	string filename = path.ToStdString();
 	size_t dirsep = filename.find_last_of("/\\") + 1;
 	GameType gt = GAME_TYPE_PSX;
-	if (filename.substr(filename.length() - 4).compare(".exe") == 0)
+	if (wxFileName(path).GetExt().CmpNoCase("exe") == 0)
 		gt = GAME_TYPE_STEAM;
-	if (filename.substr(filename.length() - 4).compare(".bin") == 0 && filename.substr(dirsep + 2, 4).compare("data") == 0) {
+	if (wxFileName(path).GetExt().CmpNoCase("bin") == 0 && filename.substr(dirsep + 2, 4).compare("data") == 0) {
 		wxLogError(HADES_STRING_OPEN_ERROR_BIN_ARCHIVE);
-		openFileDialog->Destroy();
-		return;
+		delete configalloc;
+		return false;
 	}
 	if (gt == GAME_TYPE_PSX) {
 		for (i = 0; i < CDPanelAmount; i++)
 			if (CDName[i] == filename) {
 				m_cdbook->SetSelection(i);
-				openFileDialog->Destroy();
-				return;
+				delete configalloc;
+				return true;
 			} else {
 				for (i = 0; i < CDPanelAmount; i++)
 					if (filename.substr(0, dirsep).compare(CDPanel[i]->filename) == 0) {
 						m_cdbook->SetSelection(i);
-						openFileDialog->Destroy();
-						return;
+						delete configalloc;
+						return true;
 					}
 			}
 	}
@@ -358,55 +371,70 @@ void MainFrame::OnOpenClick(wxCommandEvent& event) {
 		m_cdbook->Refresh();
 		CDPanelAmount++;
 	}
-	openFileDialog->Destroy();
+	if (!success)
+		delete configalloc;
+	return success;
 }
 
 
-static wxString ProjectFolderSettings(wxFilePickerCtrl* picker, bool remember) {
-	wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
-	wxFileConfig settings(wxEmptyString, wxEmptyString, exe.GetPathWithSep() + "HwsSession.ini",
-		wxEmptyString, wxCONFIG_USE_LOCAL_FILE);
-	if (remember) {
-		const wxFileName file(picker->GetPath());
-		if (file.IsAbsolute())
-			settings.Write("ProjectFolder", file.GetPath());
-	} else {
-		wxString folder;
-		if (settings.Read("ProjectFolder", &folder) && wxDirExists(folder))
-			picker->SetInitialDirectory(folder);
+static void SetProjectPickerFolder(wxFilePickerCtrl* picker) {
+	wxFileConfig settings(wxEmptyString, wxEmptyString, SessionSettingsPath(), wxEmptyString, wxCONFIG_USE_LOCAL_FILE);
+	wxString folder;
+	if (settings.Read("ProjectFolder", &folder) && wxDirExists(folder))
+		picker->SetInitialDirectory(folder);
+}
+
+static void RememberProjectFolder(const wxString& path) {
+	const wxFileName file(path);
+	if (file.IsAbsolute()) {
+		wxFileConfig settings(wxEmptyString, wxEmptyString, SessionSettingsPath(), wxEmptyString, wxCONFIG_USE_LOCAL_FILE);
+		settings.Write("ProjectFolder", file.GetPath());
 	}
-	return picker->GetPath();
 }
 
-IOHWSMessage* TheIOHWSMessageIn;
+void MainFrame::ImportProject(const wxString& path, bool* sections, bool* text, bool* locals) {
+	const unsigned int panel = m_cdbook->GetSelection();
+	const std::string filename = path.ToStdString();
+	SetDebugLogInfo(0, "Reading HWS: " + filename);
+	std::unique_ptr<wstring[]> result;
+	{
+		wxWindowDisabler disableInput;
+		wxBusyCursor busy;
+		result.reset(CDPanel[panel]->ReadHWS(filename.c_str(), sections, text, locals));
+	}
+	SetDebugLogInfo(-1, "");
+	const bool success = result[0] == HADES_STRING_HWS_OPEN_SUCCESS;
+	if (success) {
+		// A second import merges sections into the open project.
+		if (CDPanel[panel]->projectFilename.empty())
+			CDPanel[panel]->projectFilename = path;
+		CDCanSaveState[panel] = true;
+		RememberProjectFolder(path);
+		wxFileConfig settings(wxEmptyString, wxEmptyString, SessionSettingsPath(), wxEmptyString, wxCONFIG_USE_LOCAL_FILE);
+		settings.Write("LastOpenedProject", path);
+	}
+	wxMessageDialog message(this, _(result[0]), _(result[1]), wxOK | wxCENTRE);
+	message.ShowModal();
+	UpdateMenuAvailability(panel);
+}
+
 void MainFrame::OnOpenHWSClick(wxCommandEvent& event) {
-	unsigned int currentpanel = m_cdbook->GetSelection();
-	if (!TheIOHWSMessageIn)
-		TheIOHWSMessageIn = new IOHWSMessage(this);
-	bool* section = new bool[DATA_SECTION_AMOUNT];
-	bool* sectext = new bool[DATA_SECTION_AMOUNT];
-	ProjectFolderSettings(TheIOHWSMessageIn->m_hwspicker, false);
-	if (TheIOHWSMessageIn->ShowModal(false, section, sectext, NULL) == wxID_OK) {
-		int hwslen = TheIOHWSMessageIn->m_hwspicker->GetPath().Length();
-		char* hwsname = new char[hwslen + 1];
-		bool localsec[3];
-		localsec[0] = TheIOHWSMessageIn->m_enemylocal->GetValue() && TheIOHWSMessageIn->m_enemylocal->IsEnabled();
-		localsec[1] = TheIOHWSMessageIn->m_worldlocal->GetValue() && TheIOHWSMessageIn->m_worldlocal->IsEnabled();
-		localsec[2] = TheIOHWSMessageIn->m_fieldlocal->GetValue() && TheIOHWSMessageIn->m_fieldlocal->IsEnabled();
-		hwsname[hwslen] = 0;
-		strncpy(hwsname, (const char*)TheIOHWSMessageIn->m_hwspicker->GetPath().mb_str(), hwslen);
-		SetDebugLogInfo(0, "Reading HWS: " + string(hwsname));
-		wstring* res = CDPanel[currentpanel]->ReadHWS(hwsname, section, sectext, localsec);
-		SetDebugLogInfo(-1, "");
-		if (res[0] == HADES_STRING_HWS_OPEN_SUCCESS)
-			CDPanel[currentpanel]->projectFilename = ProjectFolderSettings(TheIOHWSMessageIn->m_hwspicker, true);
-		delete[] hwsname;
-		delete[] section;
-		delete[] sectext;
-		wxMessageDialog popupsuccess(this, _(res[0]), _(res[1]), wxOK | wxCENTRE);
-		popupsuccess.ShowModal();
-		UpdateMenuAvailability(m_cdbook->GetSelection());
-		delete[] res;
+	bool sections[DATA_SECTION_AMOUNT];
+	bool text[DATA_SECTION_AMOUNT];
+	IOHWSMessage dialog(this);
+	SetProjectPickerFolder(dialog.m_hwspicker);
+	wxFileConfig settings(wxEmptyString, wxEmptyString, SessionSettingsPath(), wxEmptyString, wxCONFIG_USE_LOCAL_FILE);
+	const wxString previous = settings.Read("LastOpenedProject", settings.Read("StartupProject", wxEmptyString));
+	if (!previous.empty() && wxFileExists(previous))
+		dialog.m_hwspicker->SetPath(previous);
+	if (dialog.ShowModal(sections, text, NULL) == wxID_OK) {
+		bool locals[] = {
+			dialog.m_enemylocal->GetValue() && dialog.m_enemylocal->IsEnabled(),
+			dialog.m_worldlocal->GetValue() && dialog.m_worldlocal->IsEnabled(),
+			dialog.m_fieldlocal->GetValue() && dialog.m_fieldlocal->IsEnabled()
+		};
+		const wxString path = dialog.m_hwspicker->GetPath();
+		ImportProject(path, sections, text, locals);
 	}
 }
 
@@ -455,12 +483,10 @@ void MainFrame::OnCloseAllClick(wxCommandEvent& event) {
 	RepaintBackground();
 }
 
-IOHWSMessage* TheIOHWSMessageOut;
 void MainFrame::OnSaveHWSClick(wxCommandEvent& event) {
 	unsigned int currentpanel = m_cdbook->GetSelection();
 	unsigned int i;
-	if (!TheIOHWSMessageOut)
-		TheIOHWSMessageOut = new IOHWSMessage(this);
+	IOHWSMessage dialog(this, true);
 	bool section[DATA_SECTION_AMOUNT];
 	bool sectext[DATA_SECTION_AMOUNT];
 	bool secton[DATA_SECTION_AMOUNT];
@@ -468,22 +494,19 @@ void MainFrame::OnSaveHWSClick(wxCommandEvent& event) {
 		section[i] = CDPanel[currentpanel]->saveset.sectionloaded[i];
 	for (i = 0; i < DATA_SECTION_AMOUNT; i++)
 		secton[i] = CDPanel[currentpanel]->saveset.sectionmodified[i];
-	ProjectFolderSettings(TheIOHWSMessageOut->m_hwspicker, false);
-	if (!CDPanel[currentpanel]->projectFilename.empty())
-		TheIOHWSMessageOut->m_hwspicker->SetPath(CDPanel[currentpanel]->projectFilename);
-	if (TheIOHWSMessageOut->ShowModal(true, section, sectext, secton) == wxID_OK) {
-		int hwslen = TheIOHWSMessageOut->m_hwspicker->GetPath().Length();
-		char* hwsname = new char[hwslen + 1];
-		hwsname[hwslen] = 0;
-		strncpy(hwsname, (const char*)TheIOHWSMessageOut->m_hwspicker->GetPath().mb_str(), hwslen);
+	SetProjectPickerFolder(dialog.m_hwspicker);
+	dialog.m_hwspicker->SetPath(CDPanel[currentpanel]->projectFilename);
+	if (dialog.ShowModal(section, sectext, secton) == wxID_OK) {
+		const wxString path = dialog.m_hwspicker->GetPath();
 		bool localsec[3];
-		localsec[0] = TheIOHWSMessageOut->m_enemylocal->GetValue() && TheIOHWSMessageOut->m_enemylocal->IsEnabled();
-		localsec[1] = TheIOHWSMessageOut->m_worldlocal->GetValue() && TheIOHWSMessageOut->m_worldlocal->IsEnabled();
-		localsec[2] = TheIOHWSMessageOut->m_fieldlocal->GetValue() && TheIOHWSMessageOut->m_fieldlocal->IsEnabled();
-		if (WriteHWS(hwsname, section, localsec, CDPanel[currentpanel]->saveset, CDPanel[currentpanel]->backupset)) {
-			wxLogError(HADES_STRING_OPEN_ERROR_CREATE, _(hwsname));
+		localsec[0] = dialog.m_enemylocal->GetValue() && dialog.m_enemylocal->IsEnabled();
+		localsec[1] = dialog.m_worldlocal->GetValue() && dialog.m_worldlocal->IsEnabled();
+		localsec[2] = dialog.m_fieldlocal->GetValue() && dialog.m_fieldlocal->IsEnabled();
+		if (path.empty() || WriteHWS(path.ToStdString(), section, localsec, CDPanel[currentpanel]->saveset, CDPanel[currentpanel]->backupset)) {
+			wxLogError(HADES_STRING_OPEN_ERROR_CREATE, path);
 		} else {
-			CDPanel[currentpanel]->projectFilename = ProjectFolderSettings(TheIOHWSMessageOut->m_hwspicker, true);
+			CDPanel[currentpanel]->projectFilename = path;
+			RememberProjectFolder(path);
 			wxMessageDialog popupsuccess(this, HADES_STRING_HWS_SAVE_SUCCESS, HADES_STRING_SUCCESS, wxOK | wxCENTRE);
 			popupsuccess.ShowModal();
 			if (CDModifiedState[currentpanel]) {
@@ -493,7 +516,6 @@ void MainFrame::OnSaveHWSClick(wxCommandEvent& event) {
 			}
 			UpdateMenuAvailability(currentpanel);
 		}
-		delete[] hwsname;
 	}
 }
 
@@ -1081,7 +1103,7 @@ void MainFrame::UpdateMenuAvailability(int panel) {
 	m_randomizer->Enable(true);
 	m_damagecalculator->Enable(true);
 	m_backgroundeditor->Enable(true);
-	m_savehws->Enable(CDCanSaveState[panel]);
+	m_savehws->Enable(CDCanSaveState[panel] || !CDPanel[panel]->projectFilename.empty());
 	m_savesteam->Enable(CDCanSaveState[panel] && GetGameType() != GAME_TYPE_PSX);
 	m_exportppf->Enable(CDCanSaveState[panel] && GetGameType() == GAME_TYPE_PSX);
 	m_savebin->Enable(CDCanSaveState[panel] && GetGameType() == GAME_TYPE_PSX);

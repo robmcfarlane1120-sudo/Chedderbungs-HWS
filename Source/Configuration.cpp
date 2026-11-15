@@ -2774,7 +2774,9 @@ wstring* LoadHWS(string filepath, bool* section, bool* sectext, bool* localsec, 
 	section[DATA_SECTION_ENMY] |= localsec[0];
 	section[DATA_SECTION_WORLD_MAP] |= localsec[1];
 	section[DATA_SECTION_FIELD] |= localsec[2];
-//	LoadingDialogInit(nbsection,_(L"Importing HWS datas..."));
+	const bool showProgress = dynamic_cast<MainFrame*>(wxGetApp().GetTopWindow()) != nullptr;
+	if (showProgress)
+		LoadingDialogInit(nbsection, _("Importing HWS project..."));
 	for (i = 0; i < nbsection; i++) {
 		HWSReadChar(save, sectiontype[i]);
 		HWSReadLong(save, sectionlength[i]);
@@ -2901,9 +2903,11 @@ wstring* LoadHWS(string filepath, bool* section, bool* sectext, bool* localsec, 
 			}
 		}
 		save.seekg(sectionpos + sectionlength[i]);
-//		LoadingDialogUpdate(i);
+		if (showProgress)
+			LoadingDialogUpdate(i + 1);
 	}
-//	LoadingDialogEnd();
+	if (showProgress)
+		LoadingDialogEnd();
 	if (saveset.sectionloaded[DATA_SECTION_FIELD] && saveset.sectionloaded[DATA_SECTION_TEXT]) {
 		for (unsigned int field = 0; field < saveset.fieldset->amount; field++) {
 			auto addition = saveset.fieldset->addition[field];

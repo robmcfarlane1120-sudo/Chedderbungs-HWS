@@ -1,3 +1,5 @@
+// Modified by Cheddarbung - November 2026. Based on Hades Workshop 0.53 by Tirlititi. Distributed under GNU GPL v3.
+
 #include "Gui_LoadingDialog.h"
 
 #include "main.h"
@@ -37,14 +39,13 @@ void LoadingDialogInit(unsigned int objamount, const wxString& title) {
 void LoadingDialogUpdate(unsigned int objdone, wxString message) {
 	if (!TheLoadingDialog->is_active || TheLoadingDialog->object_amount==0)
 		return;
-	int newvalue = 100*objdone/TheLoadingDialog->object_amount;
-	int oldvalue = TheLoadingDialog->wxGenericProgressDialog::GetValue();
-	if (message==wxEmptyString)
+	const unsigned int percent = 100 * objdone / TheLoadingDialog->object_amount;
+	const int value = percent < 100 ? percent : 99;
+	if (value == TheLoadingDialog->GetValue())
+		return;
+	if (message.empty())
 		message = wxString::Format(wxT("%u / %u"),objdone,TheLoadingDialog->object_amount);
-	if (newvalue>=oldvalue+5 || newvalue<oldvalue)
-		TheLoadingDialog->wxGenericProgressDialog::Update(newvalue<=99 ? newvalue : 99,message);
-	else
-		TheLoadingDialog->wxGenericProgressDialog::Update(oldvalue,message);
+	TheLoadingDialog->Update(value, message);
 	wxYield();
 	GetTopWindow()->SetDoubleBuffered(false);
 }

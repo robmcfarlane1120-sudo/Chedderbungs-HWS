@@ -2744,7 +2744,7 @@ class IOHWSWindow : public wxDialog
 		wxCheckBox* m_worldlocal;
 		wxCheckBox* m_fieldlocal;
 
-		IOHWSWindow( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize, long style = wxDEFAULT_DIALOG_STYLE );
+		IOHWSWindow( wxWindow* parent, long pickerStyle, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize, long style = wxDEFAULT_DIALOG_STYLE );
 
 		~IOHWSWindow();
 
@@ -3952,7 +3952,7 @@ class ScriptEditTextLinkWindow : public wxDialog
 ///////////////////////////////////////////////////////////////////////////////
 /// Class ScriptHelpWindow
 ///////////////////////////////////////////////////////////////////////////////
-class ScriptHelpWindow : public wxDialog
+class ScriptHelpWindow : public wxFrame
 {
 	private:
 
@@ -3977,7 +3977,7 @@ class ScriptHelpWindow : public wxDialog
 	public:
 		wxTextCtrl* m_helptextctrl;
 
-		ScriptHelpWindow( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Function List"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 550,400 ), long style = wxDEFAULT_DIALOG_STYLE|wxDIALOG_NO_PARENT|wxRESIZE_BORDER );
+		ScriptHelpWindow( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Function List"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 550,400 ), long style = wxDEFAULT_FRAME_STYLE );
 
 		~ScriptHelpWindow();
 

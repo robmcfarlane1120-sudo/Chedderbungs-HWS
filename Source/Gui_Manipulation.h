@@ -402,14 +402,15 @@ public:
 	bool save;
 	bool* section;
 	bool* sectext;
-	wxCheckBox** section_box;
-	wxCheckBox** section_text_box;
+	wxCheckBox* section_box[DATA_SECTION_AMOUNT];
+	wxCheckBox* section_text_box[DATA_SECTION_AMOUNT];
 	
-	IOHWSMessage(wxWindow* parent);
+	IOHWSMessage(wxWindow* parent, bool saving = false);
 	void UpdateLoadableSection();
 	void OnChangeFile(wxFileDirPickerEvent& event);
 	void OnCheckSection(wxCommandEvent& event);
-	int ShowModal(bool sv, bool* sct, bool* scttxt, bool* scton);
+	int ShowModal(bool* sct, bool* scttxt, bool* scton);
+
 };
 
 class LogDialog : public LogWindow {

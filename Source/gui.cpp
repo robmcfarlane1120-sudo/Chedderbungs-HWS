@@ -11740,7 +11740,7 @@ PreferencesWindow::~PreferencesWindow()
 
 }
 
-IOHWSWindow::IOHWSWindow( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxDialog( parent, id, title, pos, size, style )
+IOHWSWindow::IOHWSWindow( wxWindow* parent, long pickerStyle, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxDialog( parent, id, title, pos, size, style )
 {
 	this->SetSizeHints( wxDefaultSize, wxDefaultSize );
 
@@ -11755,7 +11755,7 @@ IOHWSWindow::IOHWSWindow( wxWindow* parent, wxWindowID id, const wxString& title
 	wxBoxSizer* bSizer52;
 	bSizer52 = new wxBoxSizer( wxVERTICAL );
 
-	m_hwspicker = new wxFilePickerCtrl( this, wxID_ANY, wxEmptyString, _("Select a file"), _("Hades Workshop Save (*.hws)|*.hws"), wxDefaultPosition, wxSize( -1,-1 ), wxFLP_USE_TEXTCTRL );
+	m_hwspicker = new wxFilePickerCtrl( this, wxID_ANY, wxEmptyString, _("Select a file"), _("Hades Workshop Save (*.hws)|*.hws"), wxDefaultPosition, wxSize( -1,-1 ), pickerStyle | wxFLP_USE_TEXTCTRL );
 	ScaleControlFont(m_hwspicker);
 	bSizer52->Add( m_hwspicker, 0, wxALL|wxEXPAND, 5 );
 
@@ -16000,7 +16000,7 @@ ScriptEditWindow::ScriptEditWindow( wxWindow* parent, wxWindowID id, const wxStr
 	ScaleControlFont(m_localvartext);
 	fgSizer61->Add( m_localvartext, 0, wxALL|wxEXPAND, 5 );
 
-	m_scripttext = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxHSCROLL|wxTE_DONTWRAP|wxTE_MULTILINE|wxTE_PROCESS_ENTER|wxTE_RICH2 );
+	m_scripttext = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxHSCROLL|wxTE_DONTWRAP|wxTE_MULTILINE|wxTE_PROCESS_ENTER|wxTE_RICH2|wxTE_NOHIDESEL );
 	ScaleControlFont(m_scripttext);
 	fgSizer61->Add( m_scripttext, 0, wxALL|wxEXPAND, 5 );
 
@@ -16661,7 +16661,7 @@ ScriptEditTextLinkWindow::~ScriptEditTextLinkWindow()
 
 }
 
-ScriptHelpWindow::ScriptHelpWindow( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxDialog( parent, id, title, pos, size, style )
+ScriptHelpWindow::ScriptHelpWindow( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxFrame( parent, id, title, pos, size, style )
 {
 	this->SetSizeHints( wxDefaultSize, wxDefaultSize );
 
@@ -16690,7 +16690,7 @@ ScriptHelpWindow::ScriptHelpWindow( wxWindow* parent, wxWindowID id, const wxStr
 	gbSizer30->SetFlexibleDirection( wxBOTH );
 	gbSizer30->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
 
-	m_listfunction = new wxListBox( m_panel94, wxID_FUNCTION, wxDefaultPosition, wxSize( ScaleUi(155), -1 ), 0, NULL, wxLB_HSCROLL|wxLB_SINGLE|wxLB_SORT );
+	m_listfunction = new wxListBox( m_panel94, wxID_FUNCTION, wxDefaultPosition, wxSize( ScaleUi(155), -1 ), 0, NULL, wxLB_HSCROLL|wxLB_SINGLE );
 	ScaleControlFont(m_listfunction);
 	gbSizer30->Add( m_listfunction, wxGBPosition( 0, 0 ), wxGBSpan( 1, 1 ), wxALL|wxEXPAND, 2 );
 

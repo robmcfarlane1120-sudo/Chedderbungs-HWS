@@ -224,6 +224,8 @@ public:
 	
 protected:
 	void RepaintBackground();
+	bool OpenGame(const wxString& path);
+	void ImportProject(const wxString& path, bool* sections, bool* text, bool* locals);
 	
 	// protected event handlers
 	virtual void OnCloseFrame( wxCloseEvent& event );

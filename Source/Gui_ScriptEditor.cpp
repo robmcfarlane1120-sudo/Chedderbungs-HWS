@@ -2,7 +2,10 @@
 
 #include "Gui_ScriptEditor.h"
 
+#include <algorithm>
 #include <stack>
+#include <wx/clipbrd.h>
+#include <wx/display.h>
 #include <wx/msgdlg.h>
 #include <wx/tokenzr.h>
 #include "Gui_Manipulation.h"
@@ -762,6 +765,10 @@ ScriptEditDialog::ScriptEditDialog(wxWindow* parent, ScriptDataStruct& scpt, int
 		} else
 			event.Skip();
 	});
+	m_scripttext->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& event) {
+		opcodeInsertEnd = m_scripttext->GetInsertionPoint();
+		event.Skip();
+	});
 	func_popup_menu = new wxMenu();
 	func_popup_menu->Append(wxID_ADD, HADES_STRING_GENERIC_ADD);
 	func_popup_menu->Append(wxID_REMOVE, HADES_STRING_GENERIC_REMOVE);
@@ -816,6 +823,7 @@ void ScriptEditDialog::FindScriptText(bool backwards) {
 }
 
 ScriptEditDialog::~ScriptEditDialog() {
+	CloseOpcodeBrowser();
 	if (scriptFindDialog)
 		delete scriptFindDialog;
 	unsigned int i;
@@ -879,7 +887,9 @@ int ScriptEditDialog::ShowModal() {
 		entryid++;
 	DisplayFunction(entryid, 0);
 	timer->Start(TIMER_TIMEOUT);
-	return wxDialog::ShowModal();
+	const int result = wxDialog::ShowModal();
+	CloseOpcodeBrowser();
+	return result;
 }
 
 void ScriptEditHandler::AddFunction(int entryid, int funcidpos, uint16_t functype) {
@@ -1992,7 +2002,7 @@ void ScriptEditHandler::GenerateFunctionStrings(bool appendcomment) {
 				func_str[i][j] = _(TAB_STR L"forward");
 				functrackline = 0;
 			} else {
-				bool contextlangs[STEAM_LANGUAGE_AMOUNT];
+				bool contextlangs[STEAM_LANGUAGE_AMOUNT]{};
 				if (GetGameType() != GAME_TYPE_STEAM || hades::STEAM_SINGLE_LANGUAGE_MODE) {
 					contextlangs[GetSteamLanguage()] = true;
 					funcpos[GetSteamLanguage()] = 0;
@@ -3935,6 +3945,7 @@ public:
 	
 	ScriptHelpDialog(ScriptEditDialog* p);
 	~ScriptHelpDialog();
+	void DetachAndClose();
 	void DisplayHelpFunction(SortedChoiceItemScriptOpcode* item);
 	void DisplayHelpVariable(VariableName* item);
 	void DisplayHelpVarCode(VariableOperation* item);
@@ -3948,25 +3959,53 @@ private:
 	void OnSearchButton(wxMouseEvent& event);
 	void OnListClick(wxCommandEvent& event);
 	void OnListDoubleClick(wxCommandEvent& event);
+	void CopySelectedCall();
+	void OnFunctionContextMenu(wxContextMenuEvent& event);
 };
 
 ScriptHelpDialog::ScriptHelpDialog(ScriptEditDialog* p) :
-	ScriptHelpWindow(p),
+	ScriptHelpWindow(nullptr),
 	parent(p) {
+	m_listbook->SetMinSize(FromDIP(wxSize(350, -1)));
+	m_searchtextctrl->SetMinSize(FromDIP(wxSize(285, -1)));
+	const int monitor = wxDisplay::GetFromWindow(p);
+	const wxRect workArea = wxDisplay(monitor == wxNOT_FOUND ? 0 : monitor).GetClientArea();
+	const wxSize preferred = FromDIP(wxSize(1420, 860));
+	const wxSize size(std::min(preferred.x, workArea.width), std::min(preferred.y, workArea.height));
+	SetSize(wxRect(workArea.GetPosition() + wxPoint((workArea.width - size.x) / 2,
+		(workArea.height - size.y) / 2), size));
+	Layout();
+	Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent&) { DetachAndClose(); });
+	m_listfunction->Bind(wxEVT_CONTEXT_MENU, &ScriptHelpDialog::OnFunctionContextMenu, this);
+	m_listfunction->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent& event) {
+		if (event.ControlDown() && event.GetKeyCode() == 'C')
+			CopySelectedCall();
+		else
+			event.Skip();
+	});
 	wxFont font = m_listfunction->GetFont();
 	font.SetFractionalPointSize((wxNORMAL_FONT->GetFractionalPointSize() + 4) * 1.25 + 2);
 	m_listfunction->SetFont(font);
 	unsigned int i, j;
-	j = 0;
-	func_list.Alloc(HADES_STRING_SCRIPT_OPCODE.size());
-	func_list_item = (void**)new SortedChoiceItemScriptOpcode*[HADES_STRING_SCRIPT_OPCODE.size()];
-	for (auto it = HADES_STRING_SCRIPT_OPCODE.begin(); it != HADES_STRING_SCRIPT_OPCODE.end(); it++)
-		if (it->first >= 0x07 && it->first != 0x0B && it->first != 0xFF) {
-			func_list.Add(it->second.label);
-			func_list_item[j] = (void*)&it->second;
-			m_listfunction->Append(func_list[j], func_list_item[j]);
-			j++;
-		}
+	std::vector<SortedChoiceItemScriptOpcode*> opcodes;
+	for (auto& opcode : HADES_STRING_SCRIPT_OPCODE)
+		if (opcode.first >= 0x07 && opcode.first != 0x0B && opcode.first != 0xFF)
+			opcodes.push_back(&opcode.second);
+	std::sort(opcodes.begin(), opcodes.end(), [](const auto* left, const auto* right) {
+		const wxString leftName(left->label), rightName(right->label);
+		const bool leftUnknown = leftName.StartsWith("0x"), rightUnknown = rightName.StartsWith("0x");
+		if (leftUnknown != rightUnknown)
+			return !leftUnknown;
+		return leftUnknown ? left->id < right->id : leftName.CmpNoCase(rightName) < 0;
+	});
+	func_list.Alloc(opcodes.size());
+	func_list_item = new void*[opcodes.size()];
+	for (i = 0; i < opcodes.size(); i++) {
+		func_list.Add(opcodes[i]->label);
+		func_list_item[i] = opcodes[i];
+		m_listfunction->Append(func_list[i], func_list_item[i]);
+	}
+	m_listfunction->SetToolTip(_("Double-click to insert. Right-click or press Ctrl+C to copy a function call."));
 	var_list.Alloc(VarNameList.size());
 	var_list_item = (void**)new VariableName*[VarNameList.size()];
 	for (i = 0; i < VarNameList.size(); i++) {
@@ -4011,11 +4050,67 @@ ScriptHelpDialog::ScriptHelpDialog(ScriptEditDialog* p) :
 }
 
 ScriptHelpDialog::~ScriptHelpDialog() {
-	parent->help_dial = NULL;
 	delete[] func_list_item;
 	delete[] var_list_item;
 	delete[] varcode_list_item;
 	delete[] flexible_var_op;
+}
+
+void ScriptHelpDialog::DetachAndClose() {
+	if (parent) {
+		parent->help_dial = nullptr;
+		parent->opcodeInsertEnd = -1;
+		parent = nullptr;
+	}
+	Hide();
+	Destroy();
+}
+
+void ScriptEditDialog::CloseOpcodeBrowser() {
+	if (help_dial)
+		help_dial->DetachAndClose();
+}
+
+static wxString FormatOpcodeCall(const SortedChoiceItemScriptOpcode& opcode, long* firstArgument = nullptr) {
+	wxString call = wxString(opcode.label) + "( ";
+	if (opcode.id == 0x29) {
+		// A region takes coordinate pairs. Start with three vertices.
+		if (firstArgument)
+			*firstArgument = call.length() + 1;
+		return call + "(0, 0), (0, 0), (0, 0) )";
+	}
+	if (opcode.arg_amount > 0 && firstArgument)
+		*firstArgument = call.length();
+	for (int i = 0; i < opcode.arg_amount; i++)
+		call += i ? ", 0" : "0";
+	return call + (opcode.arg_amount > 0 ? " )" : ")");
+}
+
+void ScriptHelpDialog::CopySelectedCall() {
+	const int row = m_listfunction->GetSelection();
+	if (row == wxNOT_FOUND)
+		return;
+	const auto* opcode = static_cast<SortedChoiceItemScriptOpcode*>(m_listfunction->GetClientData(row));
+	if (wxTheClipboard->Open()) {
+		wxTheClipboard->SetData(new wxTextDataObject(FormatOpcodeCall(*opcode)));
+		wxTheClipboard->Close();
+	}
+}
+
+void ScriptHelpDialog::OnFunctionContextMenu(wxContextMenuEvent& event) {
+	if (event.GetPosition() != wxDefaultPosition) {
+		const int row = m_listfunction->HitTest(m_listfunction->ScreenToClient(event.GetPosition()));
+		if (row == wxNOT_FOUND)
+			return;
+		m_listfunction->SetSelection(row);
+		DisplayHelpFunction(static_cast<SortedChoiceItemScriptOpcode*>(m_listfunction->GetClientData(row)));
+	}
+	if (m_listfunction->GetSelection() == wxNOT_FOUND)
+		return;
+	wxMenu menu;
+	menu.Append(wxID_COPY, _("Copy Function Call"));
+	menu.Bind(wxEVT_MENU, [this](wxCommandEvent&) { CopySelectedCall(); }, wxID_COPY);
+	m_listfunction->PopupMenu(&menu);
 }
 
 void ScriptHelpDialog::DisplayHelpFunction(SortedChoiceItemScriptOpcode* item) {
@@ -4084,16 +4179,36 @@ void ScriptHelpDialog::OnListClick(wxCommandEvent& event) {
 }
 
 void ScriptHelpDialog::OnListDoubleClick(wxCommandEvent& event) {
+	if (!parent)
+		return;
 	int id = event.GetId();
 	int i;
 	if (id == wxID_FUNCTION) {
-		SortedChoiceItemScriptOpcode* item = static_cast<SortedChoiceItemScriptOpcode*>(event.GetClientData());
-		parent->m_scripttext->WriteText(_(item->label) + _(L"( "));
-		for (i = 0; i + 1 < item->arg_amount; i++)
-			parent->m_scripttext->WriteText(_(L"0, "));
-		if (item->arg_amount > 0)
-			parent->m_scripttext->WriteText(_(L"0 "));
-		parent->m_scripttext->WriteText(_(L")"));
+		const int row = m_listfunction->GetSelection();
+		if (row == wxNOT_FOUND)
+			return;
+		const auto* opcode = static_cast<SortedChoiceItemScriptOpcode*>(m_listfunction->GetClientData(row));
+		long firstArgument = -1;
+		const wxString call = FormatOpcodeCall(*opcode, &firstArgument);
+		wxTextCtrl* editor = parent->m_scripttext;
+		const long lastCaret = parent->opcodeInsertEnd >= 0 ? parent->opcodeInsertEnd : editor->GetInsertionPoint();
+		const long caret = std::min(lastCaret, editor->GetLastPosition());
+		long rowNumber;
+		if (!editor->PositionToXY(caret, nullptr, &rowNumber))
+			return;
+		const wxString line = editor->GetLineText(rowNumber);
+		const wxString indent = line.Left(line.find_first_not_of(" \t"));
+		const long lineStart = editor->XYToPosition(0, rowNumber);
+		const long lineEnd = lineStart + editor->GetLineLength(rowNumber);
+		const bool blank = line.length() == indent.length();
+		const wxString prefix = blank ? indent : "\n" + indent;
+		const long insertAt = blank ? lineStart : lineEnd;
+		editor->Replace(insertAt, lineEnd, prefix + call);
+		const long callStart = editor->XYToPosition(static_cast<long>(indent.length()), rowNumber + (blank ? 0 : 1));
+		parent->opcodeInsertEnd = callStart + static_cast<long>(call.length());
+		if (firstArgument >= 0)
+			editor->SetSelection(callStart + firstArgument, callStart + firstArgument + 1);
+		editor->ShowPosition(parent->opcodeInsertEnd);
 	} else if (id == wxID_VARIABLE) {
 		VariableName* item = static_cast<VariableName*>(event.GetClientData());
 		parent->m_scripttext->WriteText(_(item->name));
@@ -4201,13 +4316,18 @@ void ScriptEditDialog::UpdateWorldRegion(unsigned int entry, unsigned int functi
 }
 
 void ScriptEditDialog::DisplayFunction(unsigned int entry, unsigned int function) {
-	m_scripttext->ChangeValue(func_str[entry][function]);
+	opcodeInsertEnd = -1;
+	entry_selection = entry;
+	function_selection = function;
+	{
+		wxEventBlocker blockTextEvents(m_scripttext, wxEVT_TEXT);
+		m_scripttext->ChangeValue(func_str[entry][function]);
+	}
+	func_str[entry][function] = m_scripttext->GetValue();
 	m_localvartext->ChangeValue(localvar_str[entry]);
 	line_selection = -1;
 	text_x_selection = -1;
 	DisplayOperation(wxEmptyString);
-	entry_selection = entry;
-	function_selection = function;
 	UpdateWorldRegion(entry, function);
 }
 
@@ -5307,10 +5427,13 @@ void ScriptEditDialog::OnFunctionRightClickMenu(wxCommandEvent& event) {
 	unsigned int i;
 	if (id == wxID_EDIT) {
 		auto& alias = script.entry[entryid].func[funcid].display_alias;
-		wxTextEntryDialog dialog(this, _("Enter a display name. Leave blank to use the default name."), _("Rename Function"), wxString(alias));
+		const wxString defaultName = functionlist_str[sel];
+		wxTextEntryDialog dialog(this, _("Enter a display name. Leave blank to use the default name."), _("Rename Function"),
+			alias.empty() ? defaultName : wxString(alias));
 		dialog.SetMaxLength(120);
 		if (dialog.ShowModal() == wxID_OK) {
-			alias = dialog.GetValue().Trim().Trim(false).ToStdWstring();
+			const wxString displayName = dialog.GetValue().Trim().Trim(false);
+			alias = displayName == defaultName ? std::wstring() : displayName.ToStdWstring();
 			m_functionlist->SetItemText(sel, alias.empty() ? functionlist_str[sel] : wxString(alias));
 		}
 	} else if (id == wxID_ADD) {
@@ -5413,12 +5536,14 @@ void ScriptEditDialog::OnFunctionRightClickMenu(wxCommandEvent& event) {
 }
 
 void ScriptEditDialog::OnFunctionUpdate(wxCommandEvent& event) {
-	unsigned int i, j, funclistpos = 0;
-	for (i = 0; i < entry_selection; i++)
-		for (j = 0; j < script.entry[i].function_amount; j++)
-			funclistpos++;
-	for (j = 0; j < function_selection; j++)
-		funclistpos++;
+	if (entry_selection == SCRIPT_ID_NO_ENTRY)
+		return;
+	wxString& draft = func_str[entry_selection][function_selection];
+	const wxString text = m_scripttext->GetValue();
+	if (draft == text)
+		return;
+	draft = text;
+	const unsigned int funclistpos = GetFunctionAbsolutePos(entry_selection, function_selection);
 	m_functionlist->SetItemTextColour(funclistpos, FUNCTION_COLOR_MODIFIED);
 	func_should_parse[funclistpos] = true;
 }
@@ -5500,7 +5625,9 @@ void ScriptEditDialog::OnButtonClick(wxCommandEvent& event) {
 			GetDebugLog() << "PARSE START" << endl;
 		}
 		currentvar_str = m_localvartext->GetValue();
-		LogStruct log = ParseFunction(m_scripttext->GetValue(), entry_selection, function_selection);
+		const wxString text = m_scripttext->GetValue();
+		func_str[entry_selection][function_selection] = text;
+		LogStruct log = ParseFunction(text, entry_selection, function_selection);
 		int sizegap = extra_size + script.entry[entry_selection].size - GetParsedEntryNewSize();
 		if (sizegap < 0) {
 			wxString errstr;
@@ -5540,11 +5667,11 @@ void ScriptEditDialog::OnButtonClick(wxCommandEvent& event) {
 			func_should_parse[funclistpos] = true;
 		}
 	} else if (id == wxID_HELP) {
-		if (help_dial == NULL || !help_dial->IsShown()) {
+		if (!help_dial) {
 			help_dial = new ScriptHelpDialog(this);
 			help_dial->Show();
 		} else {
-			help_dial->SetFocus();
+			help_dial->Raise();
 		}
 	} else {
 		if (id == wxID_OK) {

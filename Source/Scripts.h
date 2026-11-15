@@ -95,7 +95,7 @@ public:
 	uint16_t opcode;
 	uint8_t vararg_flag;	// Only used for some opcodes
 	uint8_t size_byte;		// Only used for some opcodes
-	uint8_t arg_amount;
+	uint16_t arg_amount; // Extended switches can use up to 511 arguments.
 	vector<ScriptArgument> arg;
 	unsigned int size;		// size of the full operation
 

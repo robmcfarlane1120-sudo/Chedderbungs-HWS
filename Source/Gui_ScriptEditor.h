@@ -154,6 +154,8 @@ private:
 	wxMenu* func_popup_menu;
 	GLWindow* gl_window;
 	ScriptHelpDialog* help_dial;
+	long opcodeInsertEnd = -1;
+	void CloseOpcodeBrowser();
 
 	wxCheckBox* ArgCreateFlag(wxString& arg, unsigned int id);
 	wxTextCtrl* ArgCreateText(wxString& arg, unsigned int id);
