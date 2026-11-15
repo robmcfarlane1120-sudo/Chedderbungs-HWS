@@ -732,17 +732,6 @@ void WorldMapDataSet::WriteHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uns
 			HWSWriteShort(ffhws, script[i]->object_id);
 			HWSWriteLong(ffhws, clus->size);
 			cluspos = ffhws.tellg();
-			if (savelocal) {
-				uint32_t localsize = 0;
-				HWSWriteChar(ffhws, CHUNK_SPECIAL_TYPE_LOCAL);
-				HWSWriteLong(ffhws, localsize);
-				chunkpos = ffhws.tellg();
-				script[i]->WriteLocalHWS(ffhws);
-				localsize = (long long)ffhws.tellg() - chunkpos;
-				ffhws.seekg(chunkpos - 4);
-				HWSWriteLong(ffhws, localsize);
-				ffhws.seekg(chunkpos + localsize);
-			}
 			if (GetGameType() == GAME_TYPE_PSX) {
 				if (text_data[i]->modified && savemain) {
 					HWSWriteChar(ffhws, CHUNK_TYPE_TEXT);
@@ -806,6 +795,17 @@ void WorldMapDataSet::WriteHWS(fstream& ffhws, UnusedSaveBackupPart& backup, uns
 					HWSWriteLong(ffhws, chunksize);
 					ffhws.seekg(chunkpos + chunksize);
 				}
+			}
+			if (savelocal) {
+				uint32_t localsize = 0;
+				HWSWriteChar(ffhws, CHUNK_SPECIAL_TYPE_LOCAL);
+				HWSWriteLong(ffhws, localsize);
+				chunkpos = ffhws.tellg();
+				script[i]->WriteLocalHWS(ffhws);
+				localsize = (long long)ffhws.tellg() - chunkpos;
+				ffhws.seekg(chunkpos - 4);
+				HWSWriteLong(ffhws, localsize);
+				ffhws.seekg(chunkpos + localsize);
 			}
 			HWSWriteChar(ffhws, CHUNK_SPECIAL_END);
 			clussize = (long long)ffhws.tellg() - cluspos;

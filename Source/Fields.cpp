@@ -2572,7 +2572,7 @@ int FieldAdditionDataStruct::ExportAssets(ConfigurationSet& config, SaveSet& sav
 	return 0;
 }
 
-void FieldAdditionDataStruct::ReadHWS(fstream& f) {
+void FieldAdditionDataStruct::ReadHWS(fstream& f, uint32_t end) {
 	uint8_t version;
 	HWSReadFlexibleShort(f, base_field_id, true);
 	HWSReadChar(f, version);
@@ -2581,6 +2581,15 @@ void FieldAdditionDataStruct::ReadHWS(fstream& f) {
 	HWSReadWString(f, field_id);
 	HWSReadFlexibleChar(f, text_block_id, true);
 	HWSReadShort(f, sps_pool);
+	preview_png.clear();
+	streamoff pos = f.tellg();
+	if (pos >= 0 && pos < end && end - pos <= 32 * 1024 * 1024) {
+		preview_png.resize(end - pos);
+		if (!f.read(preview_png.data(), preview_png.size())) {
+			preview_png.clear();
+			f.clear();
+		}
+	}
 }
 
 void FieldAdditionDataStruct::WriteHWS(fstream& f) {
@@ -2591,6 +2600,8 @@ void FieldAdditionDataStruct::WriteHWS(fstream& f) {
 	HWSWriteWString(f, field_id);
 	HWSWriteFlexibleChar(f, text_block_id, true);
 	HWSWriteShort(f, sps_pool);
+	if (!preview_png.empty())
+		f.write(preview_png.data(), preview_png.size());
 }
 
 bool FieldDataSet::CreateCustomField(ConfigurationSet& config, uint16_t basefieldindex, int customid) {
@@ -3203,7 +3214,7 @@ int* FieldDataSet::LoadHWS(fstream& ffhws, UnusedSaveBackupPart& backup, bool us
 						}
 					} else if (chunktype == CHUNK_SPECIAL_TYPE_FIELD_ADDITION) {
 						if (loadmain) {
-							addition[objindex]->ReadHWS(ffhws);
+							addition[objindex]->ReadHWS(ffhws, chunkpos + chunksize);
 							int textid = addition[objindex]->text_block_id;
 							int textindex = textset && textid >= 0 && textid <= UINT16_MAX ? textset->GetIndexById(textid) : -1;
 							related_text[objindex] = textindex >= 0 ? textset->text_data[textindex] : nullptr;
@@ -3319,17 +3330,6 @@ void FieldDataSet::WriteHWS(fstream& ffhws, UnusedSaveBackupPart& backup, unsign
 				preload[i]->WriteHWS(ffhws);
 				ffhws.seekg(chunkpos + preload[i]->size + 4);
 			}
-			if (savelocal) {
-				uint32_t localsize = 0;
-				HWSWriteChar(ffhws, CHUNK_SPECIAL_TYPE_LOCAL);
-				HWSWriteLong(ffhws, localsize);
-				chunkpos = ffhws.tellg();
-				script_data[i]->WriteLocalHWS(ffhws);
-				localsize = (long long)ffhws.tellg() - chunkpos;
-				ffhws.seekg(chunkpos - 4);
-				HWSWriteLong(ffhws, localsize);
-				ffhws.seekg(chunkpos + localsize);
-			}
 			if (GetGameType() == GAME_TYPE_PSX) {
 				for (j = 0; j < tim_data[i]->parent_chunk->object_amount; j++)
 					if (tim_data[i][j].modified && savemain) {
@@ -3358,6 +3358,17 @@ void FieldDataSet::WriteHWS(fstream& ffhws, UnusedSaveBackupPart& backup, unsign
 					HWSWriteLong(ffhws, chunksize);
 					ffhws.seekg(chunkpos + chunksize);
 				}
+			}
+			if (savelocal) {
+				uint32_t localsize = 0;
+				HWSWriteChar(ffhws, CHUNK_SPECIAL_TYPE_LOCAL);
+				HWSWriteLong(ffhws, localsize);
+				chunkpos = ffhws.tellg();
+				script_data[i]->WriteLocalHWS(ffhws);
+				localsize = (long long)ffhws.tellg() - chunkpos;
+				ffhws.seekg(chunkpos - 4);
+				HWSWriteLong(ffhws, localsize);
+				ffhws.seekg(chunkpos + localsize);
 			}
 			HWSWriteChar(ffhws, CHUNK_SPECIAL_END);
 			nbmodified++;

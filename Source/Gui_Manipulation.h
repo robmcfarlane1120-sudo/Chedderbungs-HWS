@@ -8,6 +8,7 @@
 class CDDataStruct : public CDPanel {
 public:
 	string filename;
+	wxString projectFilename;
 	ConfigurationSet& config;
 	ClusterSet cluster;
 	SaveSet saveset;

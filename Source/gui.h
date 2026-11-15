@@ -3795,7 +3795,7 @@ class ScriptEditWindow : public wxDialog
 		wxPanel* m_panelfield;
 		wxTextCtrl* m_helptextctrl;
 
-		ScriptEditWindow( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Edit Script"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 900,650 ), long style = wxDEFAULT_DIALOG_STYLE|wxMAXIMIZE_BOX|wxRESIZE_BORDER );
+		ScriptEditWindow( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Edit Script"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 1375,900 ), long style = wxDEFAULT_DIALOG_STYLE|wxMAXIMIZE_BOX|wxRESIZE_BORDER );
 
 		~ScriptEditWindow();
 

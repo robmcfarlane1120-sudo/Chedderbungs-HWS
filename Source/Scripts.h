@@ -120,6 +120,7 @@ public:
 	vector<int> indices[STEAM_LANGUAGE_AMOUNT];
 	uint16_t function_point;
 	uint16_t function_type;
+	wstring display_alias;
 
 	ScriptFunction& operator=(const ScriptFunction& from);
 	ScriptFunction(const ScriptFunction& from);

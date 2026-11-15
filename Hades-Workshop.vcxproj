@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -42,14 +42,14 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release staticdll|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -62,17 +62,20 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release staticdll|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <WxLibDir Condition="'$(WxLibDir)'==''">$(WxWidgetsRoot)\lib\vc14x_x64_dll</WxLibDir>
+  </PropertyGroup>
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
@@ -109,95 +112,104 @@
     <TargetName>HadesWorkshop</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
+    <ClCompile><AdditionalOptions>/bigobj /MP4 %(AdditionalOptions)</AdditionalOptions><ForcedIncludeFiles>$(ProjectDir)Source\WxTranslationCompat.h;%(ForcedIncludeFiles)</ForcedIncludeFiles><DebugInformationFormat>None</DebugInformationFormat>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WXUSINGDLL;wxMSVC_VERSION_AUTO;_UNICODE;UNICODE;NDEBUG;_HAS_STD_BYTE=0;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WXUSINGDLL;wxMSVC_VERSION_ABI_COMPAT;wxNO_REQUIRE_LITERAL_MSGIDS;_UNICODE;UNICODE;NDEBUG;_HAS_STD_BYTE=0;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <AdditionalIncludeDirectories>C:\Dev\wxWidgets-3.1.3\include\;C:\Dev\wxWidgets-3.1.3\include\msvc\;C:\Program Files\Autodesk\FBX\FBX SDK\2020.0.1\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WxWidgetsRoot)\include\;$(WxWidgetsRoot)\include\msvc\;$(FbxSdkRoot)\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessToFile>false</PreprocessToFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <DisableSpecificWarnings>6011;6262;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
-    <Link>
+    <Link><GenerateDebugInformation>false</GenerateDebugInformation><AdditionalOptions>/DEBUG:NONE %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>opengl32.lib;glu32.lib;libfbxsdk-md.lib;libxml2-md.lib;zlib-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Dev\wxWidgets-3.1.3\lib\vc141_dll\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(WxWidgetsRoot)\lib\vc14x_dll\;$(FbxSdkRoot)\lib\vs2017\x86\release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile>
+    <ClCompile><AdditionalOptions>/bigobj /MP4 %(AdditionalOptions)</AdditionalOptions><ForcedIncludeFiles>$(ProjectDir)Source\WxTranslationCompat.h;%(ForcedIncludeFiles)</ForcedIncludeFiles><DebugInformationFormat>None</DebugInformationFormat>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
+    <ClCompile><AdditionalOptions>/bigobj /MP4 %(AdditionalOptions)</AdditionalOptions><ForcedIncludeFiles>$(ProjectDir)Source\WxTranslationCompat.h;%(ForcedIncludeFiles)</ForcedIncludeFiles><DebugInformationFormat>None</DebugInformationFormat>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WXUSINGDLL;wxMSVC_VERSION_AUTO;_UNICODE;UNICODE;NDEBUG;_HAS_STD_BYTE=0;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WXUSINGDLL;wxMSVC_VERSION_ABI_COMPAT;wxNO_REQUIRE_LITERAL_MSGIDS;_UNICODE;UNICODE;NDEBUG;_HAS_STD_BYTE=0;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>C:\Dev\wxWidgets-3.1.3\include\;C:\Dev\wxWidgets-3.1.3\include\msvc\;C:\Program Files\Autodesk\FBX\FBX SDK\2020.0.1\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WxWidgetsRoot)\include\;$(WxWidgetsRoot)\include\msvc\;$(FbxSdkRoot)\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessToFile>false</PreprocessToFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <DisableSpecificWarnings>6011;6262;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
-    <Link>
+    <Link><GenerateDebugInformation>false</GenerateDebugInformation><AdditionalOptions>/DEBUG:NONE %(AdditionalOptions)</AdditionalOptions>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Dev\wxWidgets-3.1.3\lib\vc141_dll\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(WxWidgetsRoot)\lib\vc14x_dll\;$(FbxSdkRoot)\lib\vs2017\x86\release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glu32.lib;libfbxsdk-md.lib;libxml2-md.lib;zlib-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release staticdll|Win32'">
-    <ClCompile>
+    <ClCompile><AdditionalOptions>/bigobj /MP4 %(AdditionalOptions)</AdditionalOptions><ForcedIncludeFiles>$(ProjectDir)Source\WxTranslationCompat.h;%(ForcedIncludeFiles)</ForcedIncludeFiles><DebugInformationFormat>None</DebugInformationFormat>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WXUSINGDLL;wxMSVC_VERSION_AUTO;_UNICODE;UNICODE;NDEBUG;_HAS_STD_BYTE=0;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WXUSINGDLL;wxMSVC_VERSION_ABI_COMPAT;wxNO_REQUIRE_LITERAL_MSGIDS;_UNICODE;UNICODE;NDEBUG;_HAS_STD_BYTE=0;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>C:\Dev\wxWidgets-3.1.3\include\;C:\Dev\wxWidgets-3.1.3\include\msvc\;C:\Program Files\Autodesk\FBX\FBX SDK\2020.0.1\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WxWidgetsRoot)\include\;$(WxWidgetsRoot)\include\msvc\;$(FbxSdkRoot)\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessToFile>false</PreprocessToFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <DisableSpecificWarnings>6011;6262;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
-    <Link>
+    <Link><GenerateDebugInformation>false</GenerateDebugInformation><AdditionalOptions>/DEBUG:NONE %(AdditionalOptions)</AdditionalOptions>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Dev\wxWidgets-3.1.3\lib\vc141_dll\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(WxWidgetsRoot)\lib\vc14x_dll\;$(FbxSdkRoot)\lib\vs2017\x86\release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glu32.lib;libfbxsdk-md.lib;libxml2-md.lib;zlib-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ClCompile>
+    <ClCompile><AdditionalOptions>/bigobj /MP4 %(AdditionalOptions)</AdditionalOptions><ForcedIncludeFiles>$(ProjectDir)Source\WxTranslationCompat.h;%(ForcedIncludeFiles)</ForcedIncludeFiles><DebugInformationFormat>None</DebugInformationFormat>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WXUSINGDLL;wxMSVC_VERSION_ABI_COMPAT;wxNO_REQUIRE_LITERAL_MSGIDS;_UNICODE;UNICODE;NDEBUG;_HAS_STD_BYTE=0;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <AdditionalIncludeDirectories>$(WxWidgetsRoot)\include\;$(WxWidgetsRoot)\include\msvc\;$(FbxSdkRoot)\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessToFile>false</PreprocessToFile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <DisableSpecificWarnings>6011;6262;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
-    <Link>
+    <Link><GenerateDebugInformation>false</GenerateDebugInformation><AdditionalOptions>/DEBUG:NONE %(AdditionalOptions)</AdditionalOptions>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(WxLibDir)\;$(FbxSdkRoot)\lib\vs2017\x64\release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glu32.lib;libfbxsdk-md.lib;libxml2-md.lib;zlib-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Windows</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release staticdll|x64'">
-    <ClCompile>
+    <ClCompile><AdditionalOptions>/bigobj /MP4 %(AdditionalOptions)</AdditionalOptions><ForcedIncludeFiles>$(ProjectDir)Source\WxTranslationCompat.h;%(ForcedIncludeFiles)</ForcedIncludeFiles><DebugInformationFormat>None</DebugInformationFormat>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
-    <Link>
+    <Link><GenerateDebugInformation>false</GenerateDebugInformation><AdditionalOptions>/DEBUG:NONE %(AdditionalOptions)</AdditionalOptions>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
@@ -305,7 +317,7 @@
     <ClInclude Include="Source\DllCilMacro.h" />
     <ClInclude Include="Source\DllEditor.h" />
     <ClInclude Include="Source\Enemies.h" />
-    <ClInclude Include="Source\fbxsdk.h" />
+    <ClInclude Include="Source\fbxsdk.h" /><ClInclude Include="Source\WxTranslationCompat.h" /><ClInclude Include="Source\ListPrefixSearch.h" />
     <ClInclude Include="Source\Fields.h" />
     <ClInclude Include="Source\File_Batching.h" />
     <ClInclude Include="Source\File_IOCommon.h" />

@@ -467,7 +467,7 @@ inline void ScriptOperation::InitialiseArgumentVector(unsigned int count) {
 	}
 }
 
-inline bool IsScriptArgTypeSigned(uint8_t argtype) {
+bool IsScriptArgTypeSigned(uint8_t argtype) {
 	return argtype == AT_JUMP || argtype == AT_SPIN || argtype == AT_POSITION_X || argtype == AT_POSITION_Y || argtype == AT_POSITION_Z;
 }
 
@@ -1287,6 +1287,7 @@ ScriptFunction& ScriptFunction::operator=(const ScriptFunction& from) {
 	op = from.op;
 	function_point = from.function_point;
 	function_type = from.function_type;
+	display_alias = from.display_alias;
 	for (unsigned int i = 0; i < op.size(); i++)
 		op[i].parent = this;
 	return *this;
@@ -1296,7 +1297,8 @@ ScriptFunction::ScriptFunction(const ScriptFunction& from) :
 	parent(from.parent),
 	op(from.op),
 	function_point(from.function_point),
-	function_type(from.function_type) {
+	function_type(from.function_type),
+	display_alias(from.display_alias) {
 	for (SteamLanguage lang = 0; lang < STEAM_LANGUAGE_AMOUNT; lang++)
 		indices[lang] = from.indices[lang];
 	for (unsigned int i = 0; i < op.size(); i++)
@@ -2066,6 +2068,8 @@ void ScriptDataStruct::WriteSteam(fstream& f, bool uselatestversion, SteamLangua
 	}
 }
 
+static constexpr uint32_t SCRIPT_ALIAS_MARKER = 0x5341494C;
+
 void ScriptDataStruct::ReadLocalHWS(fstream& f) {
 	uint32_t localpos, entrypos, vardatapos, localsize;
 	uint16_t entryheadersize, vardatasize, tmp16;
@@ -2147,6 +2151,39 @@ void ScriptDataStruct::ReadLocalHWS(fstream& f) {
 			}
 		}
 	}
+	for (auto& scriptEntry : entry)
+		for (auto& function : scriptEntry.func)
+			function.display_alias.clear();
+	const streamoff end = static_cast<streamoff>(localpos) + localsize;
+	if (f && end - f.tellg() >= 6) {
+		uint32_t marker;
+		HWSReadLong(f, marker);
+		if (marker == SCRIPT_ALIAS_MARKER) {
+			uint16_t count;
+			HWSReadShort(f, count);
+			for (unsigned int index = 0; index < count && f && end - f.tellg() >= 5; index++) {
+				uint8_t entryIndex;
+				uint16_t functionType, length;
+				HWSReadChar(f, entryIndex);
+				HWSReadShort(f, functionType);
+				HWSReadShort(f, length);
+				if (length > 120 || end - f.tellg() < 2 * length)
+					break;
+				wstring alias;
+				for (unsigned int character = 0; character < length; character++) {
+					uint16_t code;
+					HWSReadShort(f, code);
+					alias += static_cast<wchar_t>(code);
+				}
+				if (f && entryIndex < entry_amount)
+					for (auto& function : entry[entryIndex].func)
+						if (function.function_type == functionType) {
+							function.display_alias = alias;
+							break;
+						}
+			}
+		}
+	}
 	HWSSeek(f, localpos, localsize);
 	MarkDataModified();
 }
@@ -2175,7 +2212,12 @@ void ScriptDataStruct::WriteLocalHWS(fstream& f) {
 			HWSWriteChar(f, zero8);
 		}
 	}
-	if (global_data.amount > 0) {
+	uint16_t aliasCount = 0;
+	for (const auto& scriptEntry : entry)
+		for (const auto& function : scriptEntry.func)
+			if (!function.display_alias.empty())
+				aliasCount++;
+	if (global_data.amount > 0 || aliasCount > 0) {
 		HWSWriteShort(f, 0x4);
 		HWSWriteChar(f, global_data.allocate_amount);
 		HWSWriteChar(f, (uint8_t&)global_data.amount);
@@ -2190,6 +2232,19 @@ void ScriptDataStruct::WriteLocalHWS(fstream& f) {
 			HWSWriteShort(f, zero16);
 			HWSWriteChar(f, zero8);
 		}
+	}
+	if (aliasCount > 0) {
+		HWSWriteLong(f, SCRIPT_ALIAS_MARKER);
+		HWSWriteShort(f, aliasCount);
+		for (i = 0; i < entry_amount; i++)
+			for (const auto& function : entry[i].func)
+				if (!function.display_alias.empty()) {
+					HWSWriteChar(f, i);
+					HWSWriteShort(f, function.function_type);
+					HWSWriteShort(f, function.display_alias.size());
+					for (wchar_t code : function.display_alias)
+						HWSWriteShort(f, code);
+				}
 	}
 	localsize = (long long)f.tellg() - localpos;
 	f.seekg(localpos);

@@ -428,7 +428,8 @@ struct FieldAdditionDataStruct {
 	uint16_t sps_pool;
 
 	int ExportAssets(ConfigurationSet& config, SaveSet& saveset, string destfolder, bool scriptsOnly);
-	void ReadHWS(fstream& f);
+	vector<char> preview_png;
+	void ReadHWS(fstream& f, uint32_t end);
 	void WriteHWS(fstream& f);
 };
 

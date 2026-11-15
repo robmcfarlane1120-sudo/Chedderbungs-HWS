@@ -8,6 +8,7 @@ class ScriptHelpDialog;
 
 #include <vector>
 #include <wx/clrpicker.h>
+#include <wx/fdrepdlg.h>
 #include "gui.h"
 #include "Gui_GLWindow.h"
 #include "File_Manipulation.h"
@@ -168,6 +169,10 @@ private:
 	void OnFunctionChoose(wxListEvent& event);
 	void OnIntValueText(wxCommandEvent& event);
 	void OnFunctionRightClick(wxListEvent& event);
+	wxFindReplaceData scriptFindData{wxFR_DOWN};
+	wxFindReplaceDialog* scriptFindDialog = nullptr;
+	void OpenScriptFind();
+	void FindScriptText(bool backwards);
 	void OnFunctionRightClickMenu(wxCommandEvent& event);
 	void OnFunctionUpdate(wxCommandEvent& event);
 	void OnFunctionNewLine(wxCommandEvent& event);

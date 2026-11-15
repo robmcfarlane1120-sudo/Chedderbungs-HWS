@@ -1147,7 +1147,7 @@ bool CommandFrame::ProcessCommandImport(wxArrayString args) {
 			} else if (args[0].IsSameAs(L"text")) {
 				if (!dataset[i].saveset.sectionloaded[DATA_SECTION_TEXT]) {
 					if (auto_load) {
-						if (!ProcessCommandLoad(wxArrayString(1, { const_section_name[DATA_SECTION_TEXT] })))
+						if (!ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[DATA_SECTION_TEXT] ); return values; }())))
 							return false;
 					} else if (!RaiseWarning(_("cannot import text before the related section is loaded\n"))) {
 						return false;
@@ -1203,11 +1203,11 @@ bool CommandFrame::ProcessCommandImport(wxArrayString args) {
 				bool keeploading = true;
 				while (!res.ok && auto_load && keeploading) {
 					if (wxString::Format(wxT(HADES_STRING_BATCH_NOT_LOADED), L"Fields").IsSameAs(res.error))
-						keeploading = ProcessCommandLoad(wxArrayString(1, { const_section_name[DATA_SECTION_FIELD] }));
+						keeploading = ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[DATA_SECTION_FIELD] ); return values; }()));
 					else if (wxString::Format(wxT(HADES_STRING_BATCH_NOT_LOADED), L"World Maps").IsSameAs(res.error))
-						keeploading = ProcessCommandLoad(wxArrayString(1, { const_section_name[DATA_SECTION_WORLD_MAP] }));
+						keeploading = ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[DATA_SECTION_WORLD_MAP] ); return values; }()));
 					else if (wxString::Format(wxT(HADES_STRING_BATCH_NOT_LOADED), L"Enemies").IsSameAs(res.error))
-						keeploading = ProcessCommandLoad(wxArrayString(1, { const_section_name[DATA_SECTION_ENMY] }));
+						keeploading = ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[DATA_SECTION_ENMY] ); return values; }()));
 					else
 						keeploading = false;
 					if (keeploading) {
@@ -1370,7 +1370,7 @@ bool CommandFrame::ProcessCommandExport(wxArrayString args) {
 					hastextloaded = true;
 			if (!hastextloaded) {
 				if (auto_load) {
-					if (!ProcessCommandLoad(wxArrayString(1, { const_section_name[DATA_SECTION_TEXT] })))
+					if (!ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[DATA_SECTION_TEXT] ); return values; }())))
 						return false;
 				} else if (!RaiseWarning(_("cannot export texts before the related section is loaded\n"))) {
 					return false;
@@ -1429,7 +1429,7 @@ bool CommandFrame::ProcessCommandExport(wxArrayString args) {
 		} else if (args[0].IsSameAs(L"uitext")) {
 			if (!dataset[0].saveset.sectionloaded[DATA_SECTION_MENU_UI]) {
 				if (auto_load) {
-					if (!ProcessCommandLoad(wxArrayString(1, { const_section_name[DATA_SECTION_MENU_UI] })))
+					if (!ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[DATA_SECTION_MENU_UI] ); return values; }())))
 						return false;
 				} else if (!RaiseWarning(_("cannot export UI texts before the related section is loaded\n"))) {
 					return false;
@@ -1487,7 +1487,7 @@ bool CommandFrame::ProcessCommandExport(wxArrayString args) {
 						hasscriptloaded = true;
 				if (!hasscriptloaded) {
 					if (auto_load) {
-						if (!ProcessCommandLoad(wxArrayString(1, { const_section_name[datasection] })))
+						if (!ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[datasection] ); return values; }())))
 							return false;
 					} else if (!RaiseWarning(wxString::Format(wxT("cannot export %s scripts before the related section is loaded\n"), args[1]))) {
 						return false;
@@ -1629,7 +1629,7 @@ bool CommandFrame::ProcessCommandExport(wxArrayString args) {
 										if (prefix.IsSameAs(const_index_parameter[k].name)) {
 											if (!dataloaded[const_index_parameter[k].section] && !dataloadedchecked[const_index_parameter[k].section]) {
 												if (auto_load) {
-													if (!ProcessCommandLoad(wxArrayString(1, { const_section_name[const_index_parameter[k].section] })))
+													if (!ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[const_index_parameter[k].section] ); return values; }())))
 														return false;
 													dataloaded[const_index_parameter[k].section] = true;
 												} else if (!RaiseWarning(wxString::Format(wxT("cannot export %s-related data before the section is loaded\n"), const_section_name[const_index_parameter[k].section]))) {
@@ -1947,7 +1947,7 @@ bool CommandFrame::ProcessCommandSelect(wxArrayString args) {
 		if (args[0].IsSameAs(const_index_parameter[i].name)) {
 			if (!dataloaded[const_index_parameter[i].section]) {
 				if (auto_load) {
-					if (!ProcessCommandLoad(wxArrayString(1, { const_section_name[const_index_parameter[i].section] })))
+					if (!ProcessCommandLoad(([&] { wxArrayString values; values.Add( const_section_name[const_index_parameter[i].section] ); return values; }())))
 						return false;
 				} else {
 					return RaiseWarning(wxString::Format(wxT("cannot select %s-related data before the section is loaded\n"), const_section_name[const_index_parameter[i].section]));

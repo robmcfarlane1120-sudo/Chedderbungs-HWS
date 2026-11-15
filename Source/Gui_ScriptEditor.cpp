@@ -528,6 +528,13 @@ ScriptEditDialog::ScriptEditDialog(wxWindow* parent, ScriptDataStruct& scpt, int
 	help_dial(NULL) {
 	unsigned int i;
 	handler_dialog = this;
+	for (wxWindow* control : { static_cast<wxWindow*>(m_functionlist), static_cast<wxWindow*>(m_scripttext),
+		static_cast<wxWindow*>(m_localvartext), static_cast<wxWindow*>(m_helptextctrl) }) {
+		wxFont font = control->GetFont();
+		font.SetFractionalPointSize((wxNORMAL_FONT->GetFractionalPointSize() + 4) * 1.25 + 2);
+		control->SetFont(font);
+	}
+	m_scripttext->SetDefaultStyle(wxTextAttr(wxNullColour, wxNullColour, m_scripttext->GetFont()));
 	m_panelbattle->Enable(script_type == SCRIPT_TYPE_BATTLE);
 	m_panelfield->Enable(script_type == SCRIPT_TYPE_FIELD);
 	m_panelworld->Enable(script_type == SCRIPT_TYPE_WORLD);
@@ -741,17 +748,74 @@ ScriptEditDialog::ScriptEditDialog(wxWindow* parent, ScriptDataStruct& scpt, int
 		worldmap_str.Add(_(HADES_STRING_WORLD_BLOCK_NAME[i].label));
 		worldmap_id[i] = new int(HADES_STRING_WORLD_BLOCK_NAME[i].id);
 	}
+	Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent& event) {
+		int key = event.GetKeyCode();
+		if (event.ControlDown() && !event.AltDown() && key == 'F')
+			OpenScriptFind();
+		else if (!event.ControlDown() && !event.AltDown() && key == WXK_F3) {
+			if (scriptFindData.GetFindString().empty())
+				OpenScriptFind();
+			else
+				FindScriptText(event.ShiftDown());
+		} else
+			event.Skip();
+	});
 	func_popup_menu = new wxMenu();
 	func_popup_menu->Append(wxID_ADD, HADES_STRING_GENERIC_ADD);
 	func_popup_menu->Append(wxID_REMOVE, HADES_STRING_GENERIC_REMOVE);
 	func_popup_menu->Append(wxID_SET, HADES_STRING_GENERIC_PROPERTIES);
+	func_popup_menu->Append(wxID_EDIT, _("Rename Function"));
 	func_popup_menu->Connect(wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ScriptEditDialog::OnFunctionRightClickMenu), NULL, this);
 	wxImage tmpimg = wxBITMAP(bulletdown_image).ConvertToImage();
 	m_localvarshowimg->SetBitmap(wxBitmap(tmpimg));
 	Connect(wxEVT_TIMER, wxTimerEventHandler(ScriptEditDialog::OnTimer), NULL, this);
 }
 
+void ScriptEditDialog::OpenScriptFind() {
+	if (scriptFindDialog) {
+		scriptFindDialog->Raise();
+		return;
+	}
+	wxString selected = m_scripttext->GetStringSelection();
+	if (!selected.empty() && !selected.Contains("\n"))
+		scriptFindData.SetFindString(selected);
+	scriptFindDialog = new wxFindReplaceDialog(this, &scriptFindData, _("Find in Script"), wxFR_NOWHOLEWORD);
+	auto find = [this](wxFindDialogEvent& event) {
+		FindScriptText((event.GetFlags() & wxFR_DOWN) == 0);
+	};
+	scriptFindDialog->Bind(wxEVT_FIND, find);
+	scriptFindDialog->Bind(wxEVT_FIND_NEXT, find);
+	scriptFindDialog->Bind(wxEVT_FIND_CLOSE, [this](wxFindDialogEvent&) {
+		scriptFindDialog->Destroy();
+		scriptFindDialog = nullptr;
+		m_scripttext->SetFocus();
+	});
+	scriptFindDialog->Show();
+}
+
+void ScriptEditDialog::FindScriptText(bool backwards) {
+	const wxString query = scriptFindData.GetFindString();
+	if (query.empty())
+		return;
+	long from, to;
+	m_scripttext->GetSelection(&from, &to);
+	wxTextSearch search(query);
+	search.MatchCase((scriptFindData.GetFlags() & wxFR_MATCHCASE) != 0)
+		.SearchDirection(backwards ? wxTextSearch::Direction::Up : wxTextSearch::Direction::Down)
+		.Start(backwards ? from : to);
+	auto match = m_scripttext->SearchText(search);
+	if (!match)
+		match = m_scripttext->SearchText(search.Start(backwards ? m_scripttext->GetLastPosition() : 0));
+	if (match) {
+		m_scripttext->SetSelection(match.m_start, match.m_end);
+		m_scripttext->ShowPosition(match.m_start);
+	} else
+		wxBell();
+}
+
 ScriptEditDialog::~ScriptEditDialog() {
+	if (scriptFindDialog)
+		delete scriptFindDialog;
 	unsigned int i;
 	for (i = 0; i < modellist_id.size(); i++)
 		delete modellist_id[i];
@@ -906,7 +970,7 @@ void ScriptEditDialog::DisplayFunctionList(int newfunc, int removedfunc) {
 	entrylist_str[i] = _(L"Team Character 4");
 	entrylist_id[i++] = new int(0xFE);
 	m_functionlist->ClearAll();
-	m_functionlist->AppendColumn(_(L"Functions"), wxLIST_FORMAT_LEFT, 202);
+	m_functionlist->AppendColumn(_(L"Functions"), wxLIST_FORMAT_LEFT, FromDIP(350));
 	vector<bool> newshouldparse;
 	bool firsttime = func_should_parse.size() == 0;
 	if (firsttime)
@@ -918,7 +982,8 @@ void ScriptEditDialog::DisplayFunctionList(int newfunc, int removedfunc) {
 	funcamount = 0;
 	for (i = 0; i < script.entry_amount; i++) {
 		for (j = 0; j < script.entry[i].function_amount; j++) {
-			m_functionlist->InsertItem(funcamount, functionlist_str[funcamount]);
+			const auto& alias = script.entry[i].func[j].display_alias;
+			m_functionlist->InsertItem(funcamount, alias.empty() ? functionlist_str[funcamount] : wxString(alias));
 			if (firsttime)
 				func_should_parse[funcamount] = false;
 			else if (newfunc >= 0) {
@@ -2052,7 +2117,8 @@ void ScriptEditHandler::EntryChangeName(unsigned int entry, wxString newname) {
 			if (i == entry) {
 				functionlist_str[funci] = GetFunctionName(entry, script.entry[i].func[j].function_type);
 				if (handler_dialog)
-					handler_dialog->m_functionlist->SetItemText(funci, functionlist_str[funci]);
+					handler_dialog->m_functionlist->SetItemText(funci, script.entry[i].func[j].display_alias.empty()
+						? functionlist_str[funci] : wxString(script.entry[i].func[j].display_alias));
 			}
 			funci++;
 		}
@@ -3885,6 +3951,9 @@ private:
 ScriptHelpDialog::ScriptHelpDialog(ScriptEditDialog* p) :
 	ScriptHelpWindow(p),
 	parent(p) {
+	wxFont font = m_listfunction->GetFont();
+	font.SetFractionalPointSize((wxNORMAL_FONT->GetFractionalPointSize() + 4) * 1.25 + 2);
+	m_listfunction->SetFont(font);
 	unsigned int i, j;
 	j = 0;
 	func_list.Alloc(HADES_STRING_SCRIPT_OPCODE.size());
@@ -5234,7 +5303,15 @@ void ScriptEditDialog::OnFunctionRightClickMenu(wxCommandEvent& event) {
 	}
 	int id = event.GetId();
 	unsigned int i;
-	if (id == wxID_ADD) {
+	if (id == wxID_EDIT) {
+		auto& alias = script.entry[entryid].func[funcid].display_alias;
+		wxTextEntryDialog dialog(this, _("Enter a display name. Leave blank to use the default name."), _("Rename Function"), wxString(alias));
+		dialog.SetMaxLength(120);
+		if (dialog.ShowModal() == wxID_OK) {
+			alias = dialog.GetValue().Trim().Trim(false).ToStdWstring();
+			m_functionlist->SetItemText(sel, alias.empty() ? functionlist_str[sel] : wxString(alias));
+		}
+	} else if (id == wxID_ADD) {
 		if (extra_size < 8) {
 			wxMessageDialog popup(NULL, HADES_STRING_MISSING_SPACE, HADES_STRING_ERROR, wxOK | wxCENTRE);
 			popup.ShowModal();

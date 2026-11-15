@@ -4,6 +4,9 @@
 #include <sstream>
 #include <iomanip>
 #include <wx/textdlg.h>
+#include <wx/mstream.h>
+#include <wx/wfstream.h>
+#include <wx/filedlg.h>
 #include "main.h"
 #include "CommonUtility.h"
 #include "Gui_CurveEditor.h"
@@ -6975,6 +6978,7 @@ void CDDataStruct::OnTextRightClick(wxMouseEvent& event) {
 		textmenuremove->Enable(canremove || GetGameType() == GAME_TYPE_PSX);
 		textmenucopy->Enable(RightClickTextSelection.size() > 0);
 		textmenupaste->Enable(RightClickTextSelection.size() > 0 && copystring.size() > 0);
+		textmenu->Enable(wxID_BOTTOM, m_textdatalist->GetCount() != 0);
 		m_textdatalist->PopupMenu(textmenu);
 	} else if (event.GetId() == wxID_WORLD) {
 		int newsel = m_worldtextlist->HitTest(event.GetPosition());
@@ -7018,7 +7022,14 @@ void CDDataStruct::OnTextRightClickMenu(wxCommandEvent& event) {
 	int objid = m_textdatalist->GetSelection();
 	unsigned int i;
 	int newsel = -1;
-	if (id == wxID_ADD) {
+	if (id == wxID_BOTTOM) {
+		if (m_textdatalist->GetCount()) {
+			m_textdatalist->SetSelection(m_textdatalist->GetCount() - 1);
+			m_textdatalist->SendSelectionChangedEvent(wxEVT_LISTBOX);
+		}
+		return;
+	}
+	if (id == wxID_ADD || id == wxID_MORE) {
 		newsel = td.text.size();
 		FF9String newstr;
 		newstr.CreateEmpty();
@@ -7026,10 +7037,13 @@ void CDDataStruct::OnTextRightClickMenu(wxCommandEvent& event) {
 			for (SteamLanguage lang = 0; lang < STEAM_LANGUAGE_AMOUNT; lang++)
 				if (!hades::STEAM_SINGLE_LANGUAGE_MODE || lang == GetSteamLanguage())
 					newstr.SetValue(L"[STRT=0,1]", lang);
-		if (td.AddText(-1, newstr)) {
-			newsel = -1;
-			TextReachLimit();
-		}
+		for (unsigned int count = id == wxID_MORE ? 10 : 1; count != 0; count--)
+			if (td.AddText(-1, newstr)) {
+				if (newsel == static_cast<int>(td.text.size()))
+					newsel = -1;
+				TextReachLimit();
+				break;
+			}
 	} else if (id == wxID_REMOVE && objid != wxNOT_FOUND) {
 		td.RemoveText(objid);
 		newsel = min((int)td.text.size() - 1, objid);
@@ -7068,9 +7082,19 @@ void CDDataStruct::OnTextCharmapPaint(wxPaintEvent &event) {
 //=============================//
 
 #define MACRO_FIELD_DISPLAY_BACKGROUND(FIELDID, BGID) \
-	uint32_t* imgdata = fieldset.background_data[FIELDID]->ConvertAsImageAccurate(BGID); \
-	wxBitmap bmp = wxBitmap(ConvertDataToImage(imgdata, fieldset.background_data[FIELDID]->camera[BGID].width, fieldset.background_data[FIELDID]->camera[BGID].height)); \
-	delete[] imgdata; \
+	wxBitmap bmp; \
+	auto* previewAddition = fieldset.addition[FIELDID]; \
+	if (previewAddition && !previewAddition->preview_png.empty()) { \
+		wxMemoryInputStream png(previewAddition->preview_png.data(), previewAddition->preview_png.size()); \
+		wxImage image(png, wxBITMAP_TYPE_PNG); \
+		if (image.IsOk()) \
+			bmp = wxBitmap(image.Scale(fieldset.background_data[FIELDID]->camera[BGID].width, fieldset.background_data[FIELDID]->camera[BGID].height, wxIMAGE_QUALITY_HIGH)); \
+	} \
+	if (!bmp.IsOk()) { \
+		uint32_t* imgdata = fieldset.background_data[FIELDID]->ConvertAsImageAccurate(BGID); \
+		bmp = wxBitmap(ConvertDataToImage(imgdata, fieldset.background_data[FIELDID]->camera[BGID].width, fieldset.background_data[FIELDID]->camera[BGID].height)); \
+		delete[] imgdata; \
+	} \
 	if (bmp.IsOk()) { \
 		m_fieldtexturepreview->SetVirtualSize(bmp.GetWidth(), bmp.GetHeight()); \
 		wxClientDC dc(m_fieldtexturepreview); \
@@ -9666,6 +9690,44 @@ CDDataStruct::CDDataStruct(wxWindow* parent, string fname, ConfigurationSet& cfg
 	fieldtexpreview(wxNullBitmap) {
 	unsigned int i;
 	gametype = GetGameType();
+	if (gametype == GAME_TYPE_STEAM) {
+		wxButton* previewButton = new wxButton(m_fieldcamera->GetParent(), wxID_ANY, _("Change Preview"));
+		m_fieldcamera->GetContainingSizer()->Add(previewButton, 0, wxALL, 2);
+		previewButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+			int selected = m_fieldlist->GetSelection();
+			if (selected == wxNOT_FOUND)
+				return;
+			unsigned int field = *static_cast<unsigned int*>(m_fieldlist->GetClientData(selected));
+			int camera = m_fieldtexturechoice->GetSelection();
+			if (camera == wxNOT_FOUND || !fieldset.background_data[field])
+				return;
+			wxFileDialog picker(this, _("Choose a field preview PNG"), wxEmptyString, wxEmptyString, _("PNG images (*.png)|*.png"), wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+			if (picker.ShowModal() != wxID_OK)
+				return;
+			auto* addition = fieldset.addition[field];
+			if (!addition) {
+				wxMessageBox(_("Select a custom field to save its preview."), _("Change Preview"), wxOK, this);
+				return;
+			}
+			wxFileInputStream input(picker.GetPath());
+			auto length = input.GetLength();
+			if (!input.IsOk() || length <= 0 || length > 32 * 1024 * 1024) {
+				wxMessageBox(_("Choose a readable PNG under 32 MB."), _("Change Preview"), wxOK | wxICON_ERROR, this);
+				return;
+			}
+			vector<char> png(static_cast<size_t>(length));
+			if (input.Read(png.data(), png.size()).LastRead() != png.size())
+				return;
+			wxMemoryInputStream check(png.data(), png.size());
+			wxImage image(check, wxBITMAP_TYPE_PNG);
+			if (!image.IsOk())
+				return;
+			addition->preview_png.swap(png);
+			MarkDataFieldModified(field, CHUNK_SPECIAL_TYPE_FIELD_ADDITION);
+			m_fieldtexturepreview->Scroll(0, 0);
+			MACRO_FIELD_DISPLAY_BACKGROUND(field, camera)
+		});
+	}
 	cluster.config = &config;
 	SetGameSaveSet(&saveset);
 	if (gametype == GAME_TYPE_PSX) {
@@ -9722,9 +9784,11 @@ CDDataStruct::CDDataStruct(wxWindow* parent, string fname, ConfigurationSet& cfg
 	textmenucopy = new wxMenuItem(textmenu, wxID_COPY, HADES_STRING_GENERIC_COPY);
 	textmenupaste = new wxMenuItem(textmenu, wxID_PASTE, HADES_STRING_GENERIC_PASTE);
 	textmenu->Append(textmenuadd);
+	textmenu->Append(wxID_MORE, _("Add 10"));
 	textmenu->Append(textmenuremove);
 	textmenu->Append(textmenucopy);
 	textmenu->Append(textmenupaste);
+	textmenu->Append(wxID_BOTTOM, _("Go to End"));
 	textmenu->Connect(wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CDDataStruct::OnGenericTextRightClickMenu), NULL, this);
 	specialtextmenu = new wxMenu();
 	specialtextmenuadd = new wxMenuItem(specialtextmenu, wxID_ADD, HADES_STRING_GENERIC_ADD);

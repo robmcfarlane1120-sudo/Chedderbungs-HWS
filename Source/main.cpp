@@ -9,6 +9,8 @@
 #include <sstream>
 #include <string>
 #include <wx/cmdline.h>
+#include <wx/fileconf.h>
+#include <wx/stdpaths.h>
 #include "main_command.h"
 #include "Gui_LoadingDialog.h"
 #include "Gui_Preferences.h"
@@ -22,6 +24,38 @@
 #include "MemoriaUtility.h"
 #include "Configuration.h"
 #include "Hades_Strings.h"
+#include "ListPrefixSearch.h"
+#include <wx/msw/darkmode.h>
+
+class HwsDarkPalette final : public wxDarkModeSettings {
+public:
+	wxColour GetColour(wxSystemColour index) override {
+		switch (index) {
+		case wxSYS_COLOUR_WINDOW:
+			return wxColour(67, 69, 74);
+		case wxSYS_COLOUR_BTNFACE:
+		case wxSYS_COLOUR_3DLIGHT:
+			return wxColour(46, 48, 52);
+		case wxSYS_COLOUR_BTNSHADOW:
+			return wxColour(54, 56, 61);
+		case wxSYS_COLOUR_WINDOWTEXT:
+		case wxSYS_COLOUR_BTNTEXT:
+			return wxColour(245, 245, 245);
+		default:
+			return wxDarkModeSettings::GetColour(index);
+		}
+	}
+
+	wxColour GetMenuColour(wxMenuColour colour) override {
+		switch (colour) {
+		case wxMenuColour::StandardBg: return wxColour(46, 48, 52);
+		case wxMenuColour::StandardFg: return wxColour(245, 245, 245);
+		case wxMenuColour::HotBg: return wxColour(69, 76, 87);
+		default: return wxDarkModeSettings::GetMenuColour(colour);
+		}
+	}
+};
+
 
 static const wxCmdLineEntryDesc cmdLineDesc[] = {
 	{ wxCMD_LINE_OPTION, "i", "input",   "Input command file", wxCMD_LINE_VAL_STRING, wxCMD_LINE_OPTION_MANDATORY },
@@ -55,6 +89,9 @@ namespace hades {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool MainApp::OnInit() {
+	static ListPrefixSearch listPrefixSearch;
+	wxEvtHandler::AddFilter(&listPrefixSearch);
+	MSWEnableDarkMode(DarkMode_Always, new HwsDarkPalette);
 	wxImage::AddHandler(new wxPNGHandler);
 	wxImage::AddHandler(new wxTGAHandler);
 	wxImage::AddHandler(new wxTIFFHandler);
@@ -111,7 +148,7 @@ void MainFrame::DeleteFullDir(string dirname) {
 }
 
 MainFrame::MainFrame(wxWindow *parent) :
-	MainFrameBase(parent),
+	MainFrameBase(parent, wxID_ANY, "HWS Chedderbung Build"),
 	CDPanelAmount(0) {
 	SetIcon(wxICON(hadesworkshop_icon));
 	wxClientDC dc(m_background);
@@ -323,6 +360,22 @@ void MainFrame::OnOpenClick(wxCommandEvent& event) {
 }
 
 
+static wxString ProjectFolderSettings(wxFilePickerCtrl* picker, bool remember) {
+	wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+	wxFileConfig settings(wxEmptyString, wxEmptyString, exe.GetPathWithSep() + "HwsSession.ini",
+		wxEmptyString, wxCONFIG_USE_LOCAL_FILE);
+	if (remember) {
+		const wxFileName file(picker->GetPath());
+		if (file.IsAbsolute())
+			settings.Write("ProjectFolder", file.GetPath());
+	} else {
+		wxString folder;
+		if (settings.Read("ProjectFolder", &folder) && wxDirExists(folder))
+			picker->SetInitialDirectory(folder);
+	}
+	return picker->GetPath();
+}
+
 IOHWSMessage* TheIOHWSMessageIn;
 void MainFrame::OnOpenHWSClick(wxCommandEvent& event) {
 	unsigned int currentpanel = m_cdbook->GetSelection();
@@ -330,6 +383,7 @@ void MainFrame::OnOpenHWSClick(wxCommandEvent& event) {
 		TheIOHWSMessageIn = new IOHWSMessage(this);
 	bool* section = new bool[DATA_SECTION_AMOUNT];
 	bool* sectext = new bool[DATA_SECTION_AMOUNT];
+	ProjectFolderSettings(TheIOHWSMessageIn->m_hwspicker, false);
 	if (TheIOHWSMessageIn->ShowModal(false, section, sectext, NULL) == wxID_OK) {
 		int hwslen = TheIOHWSMessageIn->m_hwspicker->GetPath().Length();
 		char* hwsname = new char[hwslen + 1];
@@ -342,6 +396,8 @@ void MainFrame::OnOpenHWSClick(wxCommandEvent& event) {
 		SetDebugLogInfo(0, "Reading HWS: " + string(hwsname));
 		wstring* res = CDPanel[currentpanel]->ReadHWS(hwsname, section, sectext, localsec);
 		SetDebugLogInfo(-1, "");
+		if (res[0] == HADES_STRING_HWS_OPEN_SUCCESS)
+			CDPanel[currentpanel]->projectFilename = ProjectFolderSettings(TheIOHWSMessageIn->m_hwspicker, true);
 		delete[] hwsname;
 		delete[] section;
 		delete[] sectext;
@@ -410,6 +466,9 @@ void MainFrame::OnSaveHWSClick(wxCommandEvent& event) {
 		section[i] = CDPanel[currentpanel]->saveset.sectionloaded[i];
 	for (i = 0; i < DATA_SECTION_AMOUNT; i++)
 		secton[i] = CDPanel[currentpanel]->saveset.sectionmodified[i];
+	ProjectFolderSettings(TheIOHWSMessageOut->m_hwspicker, false);
+	if (!CDPanel[currentpanel]->projectFilename.empty())
+		TheIOHWSMessageOut->m_hwspicker->SetPath(CDPanel[currentpanel]->projectFilename);
 	if (TheIOHWSMessageOut->ShowModal(true, section, sectext, secton) == wxID_OK) {
 		int hwslen = TheIOHWSMessageOut->m_hwspicker->GetPath().Length();
 		char* hwsname = new char[hwslen + 1];
@@ -422,6 +481,7 @@ void MainFrame::OnSaveHWSClick(wxCommandEvent& event) {
 		if (WriteHWS(hwsname, section, localsec, CDPanel[currentpanel]->saveset, CDPanel[currentpanel]->backupset)) {
 			wxLogError(HADES_STRING_OPEN_ERROR_CREATE, _(hwsname));
 		} else {
+			CDPanel[currentpanel]->projectFilename = ProjectFolderSettings(TheIOHWSMessageOut->m_hwspicker, true);
 			wxMessageDialog popupsuccess(this, HADES_STRING_HWS_SAVE_SUCCESS, HADES_STRING_SUCCESS, wxOK | wxCENTRE);
 			popupsuccess.ShowModal();
 			if (CDModifiedState[currentpanel]) {
@@ -429,6 +489,7 @@ void MainFrame::OnSaveHWSClick(wxCommandEvent& event) {
 				m_cdbook->SetPageText(currentpanel, title.Mid(1, title.Len()));
 				CDModifiedState[currentpanel] = false;
 			}
+			UpdateMenuAvailability(currentpanel);
 		}
 		delete[] hwsname;
 	}
@@ -455,7 +516,11 @@ public:
 		m_showinfobtn->SetBitmap(wxBitmap(wxBITMAP(bulletright_image).ConvertToImage()));
 		m_customFieldScriptsOnly->Enable(m_assetformat->GetSelection() == 1);
 		Fit();
-		return SaveSteamWindow::ShowModal();
+		static bool scriptsOnly = false;
+		m_customFieldScriptsOnly->SetValue(scriptsOnly);
+		int result = SaveSteamWindow::ShowModal();
+		scriptsOnly = m_customFieldScriptsOnly->GetValue();
+		return result;
 	}
 
 private:
@@ -727,31 +792,31 @@ void MainFrame::OnBatchExportClick(wxCommandEvent& event) {
 	if (id == wxID_TEXT) {
 		dial.ShowModal(1, &CDPanel[currentpanel]->saveset, CDPanel[currentpanel]->m_textlist->GetStrings(), CDPanel[currentpanel]->textsorted);
 	} else if (id == wxID_WORLDTEXT) {
-		dial.ShowModal(2, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"World Maps"), NULL);
+		dial.ShowModal(2, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"World Maps"); return values; }()), NULL);
 	} else if (id == wxID_ENMYTEXT) {
 		dial.ShowModal(3, &CDPanel[currentpanel]->saveset, CDPanel[currentpanel]->m_enemylist->GetStrings(), CDPanel[currentpanel]->enemysorted);
 	} else if (id == wxID_PLACETEXT) {
-		dial.ShowModal(4, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"World Map Places"), NULL);
+		dial.ShowModal(4, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"World Map Places"); return values; }()), NULL);
 	} else if (id == wxID_UITEXT) {
 		dial.ShowModal(5, &CDPanel[currentpanel]->saveset, CDPanel[currentpanel]->m_specialtextlist->GetStrings(), NULL);
 	} else if (id == wxID_CARDTEXT) {
-		dial.ShowModal(6, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Card Names"), NULL);
+		dial.ShowModal(6, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Card Names"); return values; }()), NULL);
 	} else if (id == wxID_LOCTEXT) {
-		dial.ShowModal(7, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Localization"), NULL);
+		dial.ShowModal(7, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Localization"); return values; }()), NULL);
 	} else if (id == wxID_SPELLTEXT) {
-		dial.ShowModal(8, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Spells"), NULL);
+		dial.ShowModal(8, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Spells"); return values; }()), NULL);
 	} else if (id == wxID_SUPPORTTEXT) {
-		dial.ShowModal(9, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Supporting Abilities"), NULL);
+		dial.ShowModal(9, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Supporting Abilities"); return values; }()), NULL);
 	} else if (id == wxID_CMDTEXT) {
-		dial.ShowModal(10, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Commands"), NULL);
+		dial.ShowModal(10, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Commands"); return values; }()), NULL);
 	} else if (id == wxID_ITEMTEXT) {
-		dial.ShowModal(11, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Items"), NULL);
+		dial.ShowModal(11, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Items"); return values; }()), NULL);
 	} else if (id == wxID_KEYTEXT) {
-		dial.ShowModal(12, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Key Items"), NULL);
+		dial.ShowModal(12, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Key Items"); return values; }()), NULL);
 	} else if (id == wxID_FIELDTEXT) {
-		dial.ShowModal(13, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Field Names"), NULL);
+		dial.ShowModal(13, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Field Names"); return values; }()), NULL);
 	} else if (id == wxID_STATTEXT) {
-		dial.ShowModal(14, &CDPanel[currentpanel]->saveset, wxArrayString(1, L"Character Names"), NULL);
+		dial.ShowModal(14, &CDPanel[currentpanel]->saveset, ([&] { wxArrayString values; values.Add(L"Character Names"); return values; }()), NULL);
 	} else if (id == wxID_ENMYSCRIPT) {
 		dial.ShowModal(100, &CDPanel[currentpanel]->saveset, CDPanel[currentpanel]->m_enemylist->GetStrings(), CDPanel[currentpanel]->enemysorted);
 	} else if (id == wxID_WORLDSCRIPT) {
@@ -957,6 +1022,14 @@ MainFrame* GetTopWindow() {
 void MainFrame::UpdateMenuAvailability(int panel) {
 	if (panel == wxNOT_FOUND)
 		panel = m_cdbook->GetSelection();
+	wxString title = "HWS Chedderbung Build";
+	if (panel >= 0 && CDPanel[panel]) {
+		if (!CDPanel[panel]->projectFilename.empty())
+			title += " - " + wxFileName(CDPanel[panel]->projectFilename).GetFullName();
+		if (CDModifiedState[panel])
+			title.Prepend("* ");
+	}
+	SetTitle(title);
 	if (panel == wxNOT_FOUND) {
 		SetGameConfiguration(NULL);
 		SetGameSaveSet(NULL);
